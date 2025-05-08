@@ -24,6 +24,7 @@ namespace VisualNTSystem
 		literal int HEIGHT = 640;
 
 	private: float zoomScale = 1.0f;
+	private: Bitmap^ originalImage; //for scrolling the canvas
 
 	private: bool isDragging = false;
 	private: System::Drawing::Point lastMousePosition;
@@ -177,16 +178,21 @@ namespace VisualNTSystem
 			this->canvas->TabIndex = 4;
 			//scroll
 			this->canvas->MouseWheel += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseWheel);
+
+
 			
 			//
-			//Background image
+			//Background image (canvas)
 			//
+						
+
 			System::Windows::Forms::PictureBox^ backgroundPictureBox = gcnew System::Windows::Forms::PictureBox();
-			backgroundPictureBox->Size = System::Drawing::Size(7680, 4320); 
-			backgroundPictureBox->BackgroundImage = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"canvas.BackgroundImage")));
+			originalImage = (cli::safe_cast<Bitmap^>(resources->GetObject(L"canvas.BackgroundImage"))); // Load the original image
+			backgroundPictureBox->Image = originalImage;
+			backgroundPictureBox->Size = System::Drawing::Size(originalImage->Width, originalImage->Height);
 			backgroundPictureBox->BackgroundImageLayout = System::Windows::Forms::ImageLayout::None;
 
-			//use mouse to travel
+			////use mouse to travel
 			backgroundPictureBox->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseDown);
 			backgroundPictureBox->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseMove);
 			backgroundPictureBox->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseUp);
@@ -291,31 +297,42 @@ namespace VisualNTSystem
 
 	private: void ResizeCanvasContent(System::Drawing::Point mouseLocation)
 	{
-		// Calculate the new size of the canvas content based on the zoom scale
-		int newWidth = static_cast<int>(7680 * zoomScale); // Assuming 8K image width
-		int newHeight = static_cast<int>(4320 * zoomScale); // Assuming 8K image height
-
-		// Resize the PictureBox inside the canvas
+		// Ensure the canvas has a PictureBox
 		if (this->canvas->Controls->Count > 0)
 		{
-			System::Windows::Forms::Control^ content = this->canvas->Controls[0];
-			content->Size = System::Drawing::Size(newWidth, newHeight);
+			System::Windows::Forms::PictureBox^ pictureBox = dynamic_cast<System::Windows::Forms::PictureBox^>(this->canvas->Controls[0]);
+			if (pictureBox != nullptr && originalImage != nullptr)
+			{
+				// Calculate the new size based on the zoom scale
+				int newWidth = static_cast<int>(originalImage->Width * zoomScale);
+				int newHeight = static_cast<int>(originalImage->Height * zoomScale);
 
-			// Get the current scroll position
-			int currentScrollX = -this->canvas->AutoScrollPosition.X;
-			int currentScrollY = -this->canvas->AutoScrollPosition.Y;
+				// Create a new scaled image
+				Bitmap^ scaledImage = gcnew Bitmap(newWidth, newHeight);
+				Graphics^ g = Graphics::FromImage(scaledImage);
+				g->InterpolationMode = System::Drawing::Drawing2D::InterpolationMode::HighQualityBicubic;
+				g->DrawImage(originalImage, 0, 0, newWidth, newHeight);
+				delete g;
 
-			// Calculate the new scroll position to keep the zoom centered around the mouse pointer
-			int mouseX = mouseLocation.X + currentScrollX;
-			int mouseY = mouseLocation.Y + currentScrollY;
+				// Update the PictureBox with the scaled image
+				pictureBox->Image = scaledImage;
+				pictureBox->Size = System::Drawing::Size(newWidth, newHeight);
 
-			int newScrollX = static_cast<int>(mouseX * zoomScale / (zoomScale - 0.1f) - mouseX);
-			int newScrollY = static_cast<int>(mouseY * zoomScale / (zoomScale - 0.1f) - mouseY);
+				// Adjust the scroll position to keep the zoom centered around the mouse pointer
+				int currentScrollX = -this->canvas->AutoScrollPosition.X;
+				int currentScrollY = -this->canvas->AutoScrollPosition.Y;
 
-			// Update the scroll position
-			this->canvas->AutoScrollPosition = System::Drawing::Point(newScrollX, newScrollY);
+				int mouseX = mouseLocation.X + currentScrollX;
+				int mouseY = mouseLocation.Y + currentScrollY;
+
+				int newScrollX = static_cast<int>(mouseX * zoomScale / (zoomScale - 0.1f) - mouseX);
+				int newScrollY = static_cast<int>(mouseY * zoomScale / (zoomScale - 0.1f) - mouseY);
+
+				this->canvas->AutoScrollPosition = System::Drawing::Point(newScrollX, newScrollY);
+			}
 		}
 	}
+
 
 	private: System::Void Canvas_MouseDown(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
 	{
