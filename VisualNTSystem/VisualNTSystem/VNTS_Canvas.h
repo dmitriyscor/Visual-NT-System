@@ -143,12 +143,12 @@ namespace VisualNTSystem
 			//
 			// // SaveButton
 			// 
-			SaveButton->Size = System::Drawing::Size(30, 30); // Small button
-			SaveButton->Location = System::Drawing::Point(this->ClientSize.Width - 40, 10); // Top-right corner
-			SaveButton->Anchor = System::Windows::Forms::AnchorStyles::Top | System::Windows::Forms::AnchorStyles::Right; // Adjust position on resize
-			SaveButton->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
-			SaveButton->BackColor = System::Drawing::Color::Transparent; // Transparent background
-			SaveButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::SaveButton_Click);
+			this->SaveButton->Size = System::Drawing::Size(30, 30); // Small button
+			this->SaveButton->Location = System::Drawing::Point(920, 10); // Default position
+			this->SaveButton->Anchor = System::Windows::Forms::AnchorStyles::Top | System::Windows::Forms::AnchorStyles::Right; // Adjust position on resize
+			this->SaveButton->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+			this->SaveButton->BackColor = System::Drawing::Color::Transparent; // Transparent background
+			this->SaveButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::SaveButton_Click);
 
 			// 
 			// objectsLabel
@@ -201,7 +201,7 @@ namespace VisualNTSystem
 			System::Windows::Forms::PictureBox^ backgroundPictureBox = gcnew System::Windows::Forms::PictureBox();
 			originalImage = (cli::safe_cast<Bitmap^>(resources->GetObject(L"canvas.BackgroundImage"))); // Load the original image
 			backgroundPictureBox->Image = originalImage;
-			backgroundPictureBox->Size = System::Drawing::Size(originalImage->Width, originalImage->Height);
+			backgroundPictureBox->Size = System::Drawing::Size(960, 640);
 			backgroundPictureBox->BackgroundImageLayout = System::Windows::Forms::ImageLayout::None;
 
 			////use mouse to travel
@@ -268,7 +268,12 @@ namespace VisualNTSystem
 	}
 	private: System::Void toolboxBackground_Click(System::Object^ sender, System::EventArgs^ e) {
 	}
-	private: System::Void button1_Click(System::Object^ sender, System::EventArgs^ e) {
+
+
+	private: System::Void button1_Click(System::Object^ sender, System::EventArgs^ e) 
+	{
+
+
 	}
 
 		   //************************************DRAG AND DROP***************************************
@@ -439,7 +444,7 @@ namespace VisualNTSystem
 
 
 
-
+        
 
 
 };
