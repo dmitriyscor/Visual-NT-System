@@ -2,6 +2,12 @@
 
 #include <msclr/marshal_cppstd.h>
 
+#include <string>
+#include <map>
+#include "CircleClass.h" // Include the CircleClass header
+
+
+
 namespace VisualNTSystem
 {
 
@@ -36,9 +42,16 @@ namespace VisualNTSystem
 	private: System::Windows::Forms::PictureBox^ backgroundPictureBox;
 	private: System::Windows::Forms::TextBox^ CanvasName;
 
-	
+
+	//obkects: classes and structures
+	private:
+		std::multimap<std::string, CircleClass>* circles_multimap;
+
+		
 
 	public:
+
+		
 
 		literal int TOOLBOX_WIDTH = 200;
 
@@ -68,6 +81,7 @@ namespace VisualNTSystem
 			{
 				delete components;
 			}
+			delete this->circles_multimap;
 		}
 
 	private: System::Windows::Forms::PictureBox^ canvasHeader;
@@ -184,10 +198,12 @@ namespace VisualNTSystem
 			this->classCircle->BackColor = System::Drawing::Color::FromArgb(static_cast<System::Int32>(static_cast<System::Byte>(28)), static_cast<System::Int32>(static_cast<System::Byte>(44)),
 				static_cast<System::Int32>(static_cast<System::Byte>(54)));
 			this->classCircle->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+			this->classCircle->Font = (gcnew System::Drawing::Font(L"Microsoft Sans Serif", 12, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
+				static_cast<System::Byte>(0)));
 			this->classCircle->ForeColor = System::Drawing::Color::White;
-			this->classCircle->Location = System::Drawing::Point(50, 100);
+			this->classCircle->Location = System::Drawing::Point(12, 74);
 			this->classCircle->Name = L"classCircle";
-			this->classCircle->Size = System::Drawing::Size(100, 50);
+			this->classCircle->Size = System::Drawing::Size(171, 50);
 			this->classCircle->TabIndex = 3;
 			this->classCircle->Text = L"Class";
 			this->classCircle->UseVisualStyleBackColor = false;
@@ -218,7 +234,7 @@ namespace VisualNTSystem
 			this->backgroundPictureBox->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseMove);
 			this->backgroundPictureBox->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseUp);
 			// 
-			// Canvas name!!!
+			// CanvasName
 			// 
 			this->CanvasName->BackColor = System::Drawing::Color::FromArgb(static_cast<System::Int32>(static_cast<System::Byte>(30)), static_cast<System::Int32>(static_cast<System::Byte>(46)),
 				static_cast<System::Int32>(static_cast<System::Byte>(56)));
@@ -228,7 +244,7 @@ namespace VisualNTSystem
 			this->CanvasName->ForeColor = System::Drawing::Color::FromArgb(static_cast<System::Int32>(static_cast<System::Byte>(246)), static_cast<System::Int32>(static_cast<System::Byte>(246)),
 				static_cast<System::Int32>(static_cast<System::Byte>(246)));
 			this->CanvasName->Location = System::Drawing::Point(233, 4);
-			this->CanvasName->Name = L"Canvas_Name";
+			this->CanvasName->Name = L"CanvasName";
 			this->CanvasName->Size = System::Drawing::Size(648, 33);
 			this->CanvasName->TabIndex = 6;
 			this->CanvasName->Text = L"New Canvas";
@@ -331,14 +347,45 @@ namespace VisualNTSystem
 		}
 	}
 
+	
+
+
 		   // Event handler for handling the drop and drawing a circle
 	private: System::Void VNTS_Canvas_DragDrop(System::Object^ sender, System::Windows::Forms::DragEventArgs^ e)
 	{
+		// Get the drop location relative to the form
 		Point dropLocation = this->PointToClient(Point(e->X, e->Y));
-		Graphics^ g = this->CreateGraphics();
-		g->FillEllipse(Brushes::DarkRed, dropLocation.X - 25, dropLocation.Y - 25, 100, 100); // Draw a circle with radius 50
+
+		// Get the canvas's boundaries
+		System::Drawing::Rectangle canvasBounds = this->canvas->ClientRectangle;
+		canvasBounds.Location = this->canvas->PointToScreen(Point(0, 0));
+
+		// Check if the drop location is within the canvas
+		if (!canvasBounds.Contains(Point(e->X, e->Y)))
+		{
+			// If the drop location is outside the canvas, do nothing
+			MessageBox::Show("Cannot place the object outside the canvas!", "Invalid Drop", MessageBoxButtons::OK, MessageBoxIcon::Warning);
+			return;
+		}
+
+		// Adjust the drop location to be relative to the canvas
+		Point canvasRelativeLocation = this->canvas->PointToClient(Point(e->X, e->Y));
+
+		// Ensure the circle stays within the canvas boundaries
+		int circleRadius = 50; // Radius of the circle
+		int adjustedX = Math::Max(canvasRelativeLocation.X - circleRadius, 0);
+		adjustedX = Math::Min(adjustedX, this->canvas->ClientSize.Width - 2 * circleRadius);
+		int adjustedY = Math::Max(canvasRelativeLocation.Y - circleRadius, 0);
+		adjustedY = Math::Min(adjustedY, this->canvas->ClientSize.Height - 2 * circleRadius);
+
+		// Draw the circle
+		Graphics^ g = this->canvas->CreateGraphics();
+		g->FillEllipse(Brushes::DarkRed, adjustedX, adjustedY, 2 * circleRadius, 2 * circleRadius); // Draw a circle with diameter 100
 		delete g;
 	}
+
+
+
 
 
 		//**********************************************************************
@@ -478,17 +525,10 @@ namespace VisualNTSystem
 
 
 
-
-
-        
-
-
 };
 
 
-
-	
-	
-
-
 }
+
+
+

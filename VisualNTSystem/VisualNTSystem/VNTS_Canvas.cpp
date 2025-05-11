@@ -1,8 +1,16 @@
+#include <iostream> 
+#include <string>
+#include <map>
+#include <vector>
+
 #include "VNTS_Canvas.h"  
-#include <iostream>  
+#include "CircleClass.h"
+
+
 
 using namespace System;  
 using namespace System::Windows::Forms;  
+
 
 [STAThreadAttribute] 
 
