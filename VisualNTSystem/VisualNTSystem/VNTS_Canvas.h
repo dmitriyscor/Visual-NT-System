@@ -1,5 +1,7 @@
 #pragma once
 
+#include <msclr/marshal_cppstd.h>
+
 namespace VisualNTSystem
 {
 
@@ -31,6 +33,8 @@ namespace VisualNTSystem
 
 
 	private: System::Windows::Forms::Panel^ canvas;
+	private: System::Windows::Forms::PictureBox^ backgroundPictureBox;
+	private: System::Windows::Forms::TextBox^ CanvasName;
 
 	
 
@@ -70,7 +74,7 @@ namespace VisualNTSystem
 	private: System::Windows::Forms::PictureBox^ toolboxBackground;
 	private: System::Windows::Forms::Button^ SaveAndExitButton;
 	private: System::Windows::Forms::Button^ SaveButton;
-	private: System::Windows::Forms::Label^ objectsLabel;
+	private: System::Windows::Forms::Label^ objects;
 
 	//dynamic stuff
 	private: System::Windows::Forms::Button^ classCircle;
@@ -94,12 +98,16 @@ namespace VisualNTSystem
 			this->canvasHeader = (gcnew System::Windows::Forms::PictureBox());
 			this->toolboxBackground = (gcnew System::Windows::Forms::PictureBox());
 			this->SaveAndExitButton = (gcnew System::Windows::Forms::Button());
-			this->SaveButton = gcnew System::Windows::Forms::Button();
-			this->objectsLabel = (gcnew System::Windows::Forms::Label());
+			this->SaveButton = (gcnew System::Windows::Forms::Button());
+			this->objects = (gcnew System::Windows::Forms::Label());
 			this->classCircle = (gcnew System::Windows::Forms::Button());
 			this->canvas = (gcnew System::Windows::Forms::Panel());
+			this->backgroundPictureBox = (gcnew System::Windows::Forms::PictureBox());
+			this->CanvasName = (gcnew System::Windows::Forms::TextBox());
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->canvasHeader))->BeginInit();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->toolboxBackground))->BeginInit();
+			this->canvas->SuspendLayout();
+			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->backgroundPictureBox))->BeginInit();
 			this->SuspendLayout();
 			// 
 			// canvasHeader
@@ -139,31 +147,37 @@ namespace VisualNTSystem
 			this->SaveAndExitButton->TabIndex = 1;
 			this->SaveAndExitButton->Text = L"Save And Exit";
 			this->SaveAndExitButton->UseVisualStyleBackColor = false;
-			this->SaveAndExitButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::button1_Click);
-			//
-			// // SaveButton
+			this->SaveAndExitButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::SaveAndExit);
 			// 
-			this->SaveButton->Size = System::Drawing::Size(30, 30); // Small button
-			this->SaveButton->Location = System::Drawing::Point(920, 10); // Default position
-			this->SaveButton->Anchor = System::Windows::Forms::AnchorStyles::Top | System::Windows::Forms::AnchorStyles::Right; // Adjust position on resize
-			this->SaveButton->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
-			this->SaveButton->BackColor = System::Drawing::Color::Transparent; // Transparent background
-			this->SaveButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::SaveButton_Click);
-
+			// SaveButton
 			// 
-			// objectsLabel
-			// 
-			this->objectsLabel->AutoSize = true;
-			this->objectsLabel->BackColor = System::Drawing::Color::FromArgb(static_cast<System::Int32>(static_cast<System::Byte>(28)), static_cast<System::Int32>(static_cast<System::Byte>(44)),
+			this->SaveButton->Anchor = static_cast<System::Windows::Forms::AnchorStyles>((System::Windows::Forms::AnchorStyles::Top | System::Windows::Forms::AnchorStyles::Right));
+			this->SaveButton->BackColor = System::Drawing::Color::FromArgb(static_cast<System::Int32>(static_cast<System::Byte>(28)), static_cast<System::Int32>(static_cast<System::Byte>(44)),
 				static_cast<System::Int32>(static_cast<System::Byte>(54)));
-			this->objectsLabel->Font = (gcnew System::Drawing::Font(L"Candara", 15.75F));
-			this->objectsLabel->ForeColor = System::Drawing::Color::FromArgb(static_cast<System::Int32>(static_cast<System::Byte>(246)), static_cast<System::Int32>(static_cast<System::Byte>(246)),
+			this->SaveButton->BackgroundImage = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"SaveButton.BackgroundImage")));
+			this->SaveButton->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+			this->SaveButton->ForeColor = System::Drawing::Color::FromArgb(static_cast<System::Int32>(static_cast<System::Byte>(28)), static_cast<System::Int32>(static_cast<System::Byte>(44)),
+				static_cast<System::Int32>(static_cast<System::Byte>(54)));
+			this->SaveButton->Location = System::Drawing::Point(920, 10);
+			this->SaveButton->Name = L"SaveButton";
+			this->SaveButton->Size = System::Drawing::Size(30, 30);
+			this->SaveButton->TabIndex = 5;
+			this->SaveButton->UseVisualStyleBackColor = false;
+			this->SaveButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::SaveButton_Click);
+			// 
+			// objects
+			// 
+			this->objects->AutoSize = true;
+			this->objects->BackColor = System::Drawing::Color::FromArgb(static_cast<System::Int32>(static_cast<System::Byte>(28)), static_cast<System::Int32>(static_cast<System::Byte>(44)),
+				static_cast<System::Int32>(static_cast<System::Byte>(54)));
+			this->objects->Font = (gcnew System::Drawing::Font(L"Candara", 15.75F));
+			this->objects->ForeColor = System::Drawing::Color::FromArgb(static_cast<System::Int32>(static_cast<System::Byte>(246)), static_cast<System::Int32>(static_cast<System::Byte>(246)),
 				static_cast<System::Int32>(static_cast<System::Byte>(246)));
-			this->objectsLabel->Location = System::Drawing::Point(51, 9);
-			this->objectsLabel->Name = L"objectsLabel";
-			this->objectsLabel->Size = System::Drawing::Size(81, 26);
-			this->objectsLabel->TabIndex = 2;
-			this->objectsLabel->Text = L"Objects";
+			this->objects->Location = System::Drawing::Point(59, 9);
+			this->objects->Name = L"objects";
+			this->objects->Size = System::Drawing::Size(81, 26);
+			this->objects->TabIndex = 3;
+			this->objects->Text = L"Objects";
 			// 
 			// classCircle
 			// 
@@ -183,35 +197,41 @@ namespace VisualNTSystem
 			// 
 			this->canvas->AutoScroll = true;
 			this->canvas->BackgroundImage = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"canvas.BackgroundImage")));
-			this->canvas->Location = System::Drawing::Point(200, 50);
 			this->canvas->BackgroundImageLayout = System::Windows::Forms::ImageLayout::None;
+			this->canvas->Controls->Add(this->backgroundPictureBox);
+			this->canvas->Location = System::Drawing::Point(200, 50);
 			this->canvas->Name = L"canvas";
 			this->canvas->Size = System::Drawing::Size(769, 592);
 			this->canvas->TabIndex = 4;
-			//scroll
 			this->canvas->MouseWheel += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseWheel);
-
-
-			
-			//
-			//Background image (canvas)
-			//
-						
-
-			System::Windows::Forms::PictureBox^ backgroundPictureBox = gcnew System::Windows::Forms::PictureBox();
-			originalImage = (cli::safe_cast<Bitmap^>(resources->GetObject(L"canvas.BackgroundImage"))); // Load the original image
-			backgroundPictureBox->Image = originalImage;
-			backgroundPictureBox->Size = System::Drawing::Size(960, 640);
-			backgroundPictureBox->BackgroundImageLayout = System::Windows::Forms::ImageLayout::None;
-
-			////use mouse to travel
-			backgroundPictureBox->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseDown);
-			backgroundPictureBox->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseMove);
-			backgroundPictureBox->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseUp);
-
-
-
-			this->canvas->Controls->Add(backgroundPictureBox);
+			// 
+			// backgroundPictureBox
+			// 
+			this->backgroundPictureBox->BackgroundImageLayout = System::Windows::Forms::ImageLayout::None;
+			this->backgroundPictureBox->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"backgroundPictureBox.Image")));
+			this->backgroundPictureBox->Location = System::Drawing::Point(0, 0);
+			this->backgroundPictureBox->Name = L"backgroundPictureBox";
+			this->backgroundPictureBox->Size = System::Drawing::Size(960, 640);
+			this->backgroundPictureBox->TabIndex = 0;
+			this->backgroundPictureBox->TabStop = false;
+			this->backgroundPictureBox->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseDown);
+			this->backgroundPictureBox->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseMove);
+			this->backgroundPictureBox->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseUp);
+			// 
+			// Canvas name!!!
+			// 
+			this->CanvasName->BackColor = System::Drawing::Color::FromArgb(static_cast<System::Int32>(static_cast<System::Byte>(30)), static_cast<System::Int32>(static_cast<System::Byte>(46)),
+				static_cast<System::Int32>(static_cast<System::Byte>(56)));
+			this->CanvasName->BorderStyle = System::Windows::Forms::BorderStyle::None;
+			this->CanvasName->Font = (gcnew System::Drawing::Font(L"Candara Light", 20.25F, System::Drawing::FontStyle::Regular, System::Drawing::GraphicsUnit::Point,
+				static_cast<System::Byte>(0)));
+			this->CanvasName->ForeColor = System::Drawing::Color::FromArgb(static_cast<System::Int32>(static_cast<System::Byte>(246)), static_cast<System::Int32>(static_cast<System::Byte>(246)),
+				static_cast<System::Int32>(static_cast<System::Byte>(246)));
+			this->CanvasName->Location = System::Drawing::Point(233, 4);
+			this->CanvasName->Name = L"Canvas_Name";
+			this->CanvasName->Size = System::Drawing::Size(648, 33);
+			this->CanvasName->TabIndex = 6;
+			this->CanvasName->Text = L"New Canvas";
 			// 
 			// VNTS_Canvas
 			// 
@@ -220,18 +240,21 @@ namespace VisualNTSystem
 			this->BackColor = System::Drawing::Color::FromArgb(static_cast<System::Int32>(static_cast<System::Byte>(240)), static_cast<System::Int32>(static_cast<System::Byte>(240)),
 				static_cast<System::Int32>(static_cast<System::Byte>(240)));
 			this->ClientSize = System::Drawing::Size(960, 640);
+			this->Controls->Add(this->CanvasName);
 			this->Controls->Add(this->canvas);
 			this->Controls->Add(this->classCircle);
-			this->Controls->Add(this->objectsLabel);
+			this->Controls->Add(this->objects);
 			this->Controls->Add(this->SaveAndExitButton);
 			this->Controls->Add(this->SaveButton);
 			this->Controls->Add(this->canvasHeader);
 			this->Controls->Add(this->toolboxBackground);
-			this->Name = L"Visual Note Taking System";
+			this->Name = L"VNTS_Canvas";
 			this->Text = L"Visual Note Taking System";
 			this->Load += gcnew System::EventHandler(this, &VNTS_Canvas::VNTS_Canvas_Load);
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->canvasHeader))->EndInit();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->toolboxBackground))->EndInit();
+			this->canvas->ResumeLayout(false);
+			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->backgroundPictureBox))->EndInit();
 			this->ResumeLayout(false);
 			this->PerformLayout();
 
@@ -248,11 +271,20 @@ namespace VisualNTSystem
 			int scrollX = System::Convert::ToInt32(reader->ReadLine());
 			int scrollY = System::Convert::ToInt32(reader->ReadLine());
 			zoomScale = System::Convert::ToSingle(reader->ReadLine());
+
+			// Read the canvas name and convert it to System::String^
+			std::string canvasName = msclr::interop::marshal_as<std::string>(reader->ReadLine());
+			this->CanvasName->Text = gcnew System::String(canvasName.c_str());
+
 			reader->Close();
 
 			// Apply the saved scroll position and zoom level
 			this->canvas->AutoScrollPosition = System::Drawing::Point(scrollX, scrollY); // Remove sign inversion
 			ResizeCanvasContent(System::Drawing::Point(0, 0)); // Adjust the canvas size based on the zoom level
+		}
+		else
+		{
+			Console::WriteLine("Save file not found.");
 		}
 	}
 
@@ -270,10 +302,10 @@ namespace VisualNTSystem
 	}
 
 
-	private: System::Void button1_Click(System::Object^ sender, System::EventArgs^ e) 
+	private: System::Void SaveAndExit(System::Object^ sender, System::EventArgs^ e) 
 	{
-
-
+		SaveButton_Click(sender, e);
+		Application::Exit();
 	}
 
 		   //************************************DRAG AND DROP***************************************
@@ -429,11 +461,15 @@ namespace VisualNTSystem
 		int scrollX = -this->canvas->AutoScrollPosition.X;
 		int scrollY = -this->canvas->AutoScrollPosition.Y;
 
-		// Save the scroll position and zoom level to a file
+		// Convert System::String^ to std::string
+		std::string canvasName = msclr::interop::marshal_as<std::string>(this->CanvasName->Text);
+
+		// Save the scroll position, zoom level, and canvas name to a file
 		System::IO::StreamWriter^ writer = gcnew System::IO::StreamWriter("canvas_save.txt");
 		writer->WriteLine(scrollX);
 		writer->WriteLine(scrollY);
 		writer->WriteLine(zoomScale);
+		writer->WriteLine(gcnew System::String(canvasName.c_str())); // Save the canvas name
 		writer->Close();
 
 		MessageBox::Show("Canvas state saved!", "Save", MessageBoxButtons::OK, MessageBoxIcon::Information);
