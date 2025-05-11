@@ -69,6 +69,7 @@ namespace VisualNTSystem
 	private: System::Windows::Forms::PictureBox^ canvasHeader;
 	private: System::Windows::Forms::PictureBox^ toolboxBackground;
 	private: System::Windows::Forms::Button^ SaveAndExitButton;
+	private: System::Windows::Forms::Button^ SaveButton;
 	private: System::Windows::Forms::Label^ objectsLabel;
 
 	//dynamic stuff
@@ -93,6 +94,7 @@ namespace VisualNTSystem
 			this->canvasHeader = (gcnew System::Windows::Forms::PictureBox());
 			this->toolboxBackground = (gcnew System::Windows::Forms::PictureBox());
 			this->SaveAndExitButton = (gcnew System::Windows::Forms::Button());
+			this->SaveButton = gcnew System::Windows::Forms::Button();
 			this->objectsLabel = (gcnew System::Windows::Forms::Label());
 			this->classCircle = (gcnew System::Windows::Forms::Button());
 			this->canvas = (gcnew System::Windows::Forms::Panel());
@@ -138,6 +140,16 @@ namespace VisualNTSystem
 			this->SaveAndExitButton->Text = L"Save And Exit";
 			this->SaveAndExitButton->UseVisualStyleBackColor = false;
 			this->SaveAndExitButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::button1_Click);
+			//
+			// // SaveButton
+			// 
+			SaveButton->Size = System::Drawing::Size(30, 30); // Small button
+			SaveButton->Location = System::Drawing::Point(this->ClientSize.Width - 40, 10); // Top-right corner
+			SaveButton->Anchor = System::Windows::Forms::AnchorStyles::Top | System::Windows::Forms::AnchorStyles::Right; // Adjust position on resize
+			SaveButton->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+			SaveButton->BackColor = System::Drawing::Color::Transparent; // Transparent background
+			SaveButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::SaveButton_Click);
+
 			// 
 			// objectsLabel
 			// 
@@ -212,6 +224,7 @@ namespace VisualNTSystem
 			this->Controls->Add(this->classCircle);
 			this->Controls->Add(this->objectsLabel);
 			this->Controls->Add(this->SaveAndExitButton);
+			this->Controls->Add(this->SaveButton);
 			this->Controls->Add(this->canvasHeader);
 			this->Controls->Add(this->toolboxBackground);
 			this->Name = L"Visual Note Taking System";
@@ -224,10 +237,31 @@ namespace VisualNTSystem
 
 		}
 #pragma endregion
+	//******************************** - Load Function - **************************************
+
 	private: System::Void VNTS_Canvas_Load(System::Object^ sender, System::EventArgs^ e)
 	{
+		// Check if the save file exists
+		if (System::IO::File::Exists("canvas_save.txt"))
+		{
+			System::IO::StreamReader^ reader = gcnew System::IO::StreamReader("canvas_save.txt");
+			int scrollX = System::Convert::ToInt32(reader->ReadLine());
+			int scrollY = System::Convert::ToInt32(reader->ReadLine());
+			zoomScale = System::Convert::ToSingle(reader->ReadLine());
+			reader->Close();
 
+			// Apply the saved scroll position and zoom level
+			this->canvas->AutoScrollPosition = System::Drawing::Point(scrollX, scrollY); // Remove sign inversion
+			ResizeCanvasContent(System::Drawing::Point(0, 0)); // Adjust the canvas size based on the zoom level
+		}
 	}
+
+
+
+
+
+
+
 	private: System::Void pictureBox1_Click(System::Object^ sender, System::EventArgs^ e)
 	{
 
@@ -381,6 +415,32 @@ namespace VisualNTSystem
 	}
 
 		   //**********************************************************************
+
+
+	//******************************** - SAVE BUTTON - **************************************
+	private: System::Void SaveButton_Click(System::Object^ sender, System::EventArgs^ e)
+	{
+		// Get the current scroll position
+		int scrollX = -this->canvas->AutoScrollPosition.X;
+		int scrollY = -this->canvas->AutoScrollPosition.Y;
+
+		// Save the scroll position and zoom level to a file
+		System::IO::StreamWriter^ writer = gcnew System::IO::StreamWriter("canvas_save.txt");
+		writer->WriteLine(scrollX);
+		writer->WriteLine(scrollY);
+		writer->WriteLine(zoomScale);
+		writer->Close();
+
+		MessageBox::Show("Canvas state saved!", "Save", MessageBoxButtons::OK, MessageBoxIcon::Information);
+	}
+
+
+
+
+
+
+
+
 
 };
 
