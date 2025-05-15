@@ -50,6 +50,8 @@ namespace VisualNTSystem
 
 	private: Bitmap^ canvasBackground;
 
+	
+
 	public:
 
 		
@@ -65,11 +67,16 @@ namespace VisualNTSystem
 
 			this->AllowDrop = true;
 			
+			//move
 			this->canvas->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseDown);
 			this->canvas->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseMove);
 			this->canvas->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseUp);
 
 			this->canvas->Paint += gcnew PaintEventHandler(this, &VNTS_Canvas::Canvas_Paint);
+
+			//scroll
+			this->canvas->MouseWheel += gcnew MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseWheel);
+			this->canvas->Focus();
 
 		}
 
@@ -291,7 +298,7 @@ namespace VisualNTSystem
         }
     }
 
-
+	
 
 
 
@@ -313,12 +320,20 @@ namespace VisualNTSystem
 	{
 		if (canvasBackground != nullptr)
 		{
-			// Get the current scroll position
 			int scrollX = -this->canvas->AutoScrollPosition.X;
 			int scrollY = -this->canvas->AutoScrollPosition.Y;
 
-			// Draw the background image, offset by the scroll position
-			e->Graphics->DrawImage(canvasBackground, -scrollX, -scrollY, canvasBackground->Width, canvasBackground->Height);
+			// Apply zoom
+			e->Graphics->ScaleTransform(zoomScale, zoomScale);
+
+			// Draw the background image at the correct position and scale
+			e->Graphics->DrawImage(
+				canvasBackground,
+				static_cast<float>(-scrollX) / zoomScale,
+				static_cast<float>(-scrollY) / zoomScale,
+				static_cast<float>(canvasBackground->Width),
+				static_cast<float>(canvasBackground->Height)
+			);
 		}
 	}
 		  
@@ -350,17 +365,16 @@ namespace VisualNTSystem
 	{
 		if (isDragging)
 		{
-			// Calculate the difference
 			int dx = e->X - lastMousePosition.X;
 			int dy = e->Y - lastMousePosition.Y;
 
-			// Update the scroll position
+			// Pan by adjusting the scroll position (which now acts as pan offset)
 			int newScrollX = -this->canvas->AutoScrollPosition.X - dx;
 			int newScrollY = -this->canvas->AutoScrollPosition.Y - dy;
 			this->canvas->AutoScrollPosition = System::Drawing::Point(newScrollX, newScrollY);
 
-			// Update last position
 			lastMousePosition = e->Location;
+			this->canvas->Invalidate();
 		}
 	}
 
@@ -378,7 +392,21 @@ namespace VisualNTSystem
 
 
 
+	//******************************** - SCROLLING - **************************************
+	private: System::Void Canvas_MouseWheel(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
+	{
+		float oldZoom = zoomScale;
+		if (e->Delta > 0 && zoomScale < 2.0f)
+			zoomScale += 0.1f;
+		else if (e->Delta < 0 && zoomScale > 1.0f)
+			zoomScale -= 0.1f;
 
+		if (zoomScale != oldZoom)
+		{
+			// Optionally, adjust scroll position to keep mouse position stable
+			this->canvas->Invalidate(); // Redraw canvas
+		}
+	}
 
 
 
