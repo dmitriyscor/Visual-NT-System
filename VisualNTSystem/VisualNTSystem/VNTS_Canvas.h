@@ -38,16 +38,17 @@ namespace VisualNTSystem
 	private: System::Drawing::Point lastMousePosition;
 
 
-	private: System::Windows::Forms::Panel^ canvas;
-	private: System::Windows::Forms::PictureBox^ backgroundPictureBox;
+
+
 	private: System::Windows::Forms::TextBox^ CanvasName;
 
 
 	//obkects: classes and structures
 	private:
 		std::multimap<std::string, CircleClass>* circles_multimap;
+	private: System::Windows::Forms::Panel^ canvas;
 
-		
+	private: Bitmap^ canvasBackground;
 
 	public:
 
@@ -63,11 +64,12 @@ namespace VisualNTSystem
 			//
 
 			this->AllowDrop = true;
-			this->DragEnter += gcnew DragEventHandler(this, &VNTS_Canvas::VNTS_Canvas_DragEnter);
-			this->DragDrop += gcnew DragEventHandler(this, &VNTS_Canvas::VNTS_Canvas_DragDrop);
+			
+			this->canvas->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseDown);
+			this->canvas->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseMove);
+			this->canvas->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseUp);
 
-			// Enable mouse wheel zooming
-			this->canvas->MouseEnter += gcnew System::EventHandler(this, &VNTS_Canvas::Canvas_MouseEnter);
+			this->canvas->Paint += gcnew PaintEventHandler(this, &VNTS_Canvas::Canvas_Paint);
 
 		}
 
@@ -115,13 +117,10 @@ namespace VisualNTSystem
 			this->SaveButton = (gcnew System::Windows::Forms::Button());
 			this->objects = (gcnew System::Windows::Forms::Label());
 			this->classCircle = (gcnew System::Windows::Forms::Button());
-			this->canvas = (gcnew System::Windows::Forms::Panel());
-			this->backgroundPictureBox = (gcnew System::Windows::Forms::PictureBox());
 			this->CanvasName = (gcnew System::Windows::Forms::TextBox());
+			this->canvas = (gcnew System::Windows::Forms::Panel());
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->canvasHeader))->BeginInit();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->toolboxBackground))->BeginInit();
-			this->canvas->SuspendLayout();
-			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->backgroundPictureBox))->BeginInit();
 			this->SuspendLayout();
 			// 
 			// canvasHeader
@@ -207,32 +206,6 @@ namespace VisualNTSystem
 			this->classCircle->TabIndex = 3;
 			this->classCircle->Text = L"Class";
 			this->classCircle->UseVisualStyleBackColor = false;
-			this->classCircle->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::circleButton_MouseDown);
-			// 
-			// canvas
-			// 
-			this->canvas->AutoScroll = true;
-			this->canvas->BackgroundImage = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"canvas.BackgroundImage")));
-			this->canvas->BackgroundImageLayout = System::Windows::Forms::ImageLayout::None;
-			this->canvas->Controls->Add(this->backgroundPictureBox);
-			this->canvas->Location = System::Drawing::Point(200, 50);
-			this->canvas->Name = L"canvas";
-			this->canvas->Size = System::Drawing::Size(769, 592);
-			this->canvas->TabIndex = 4;
-			this->canvas->MouseWheel += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseWheel);
-			// 
-			// backgroundPictureBox
-			// 
-			this->backgroundPictureBox->BackgroundImageLayout = System::Windows::Forms::ImageLayout::None;
-			this->backgroundPictureBox->Image = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"backgroundPictureBox.Image")));
-			this->backgroundPictureBox->Location = System::Drawing::Point(0, 0);
-			this->backgroundPictureBox->Name = L"backgroundPictureBox";
-			this->backgroundPictureBox->Size = System::Drawing::Size(960, 640);
-			this->backgroundPictureBox->TabIndex = 0;
-			this->backgroundPictureBox->TabStop = false;
-			this->backgroundPictureBox->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseDown);
-			this->backgroundPictureBox->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseMove);
-			this->backgroundPictureBox->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseUp);
 			// 
 			// CanvasName
 			// 
@@ -248,6 +221,16 @@ namespace VisualNTSystem
 			this->CanvasName->Size = System::Drawing::Size(648, 33);
 			this->CanvasName->TabIndex = 6;
 			this->CanvasName->Text = L"New Canvas";
+			// 
+			// canvas
+			// 
+			this->canvas->AutoScroll = true;
+			//this->canvas->BackgroundImage = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"canvas.BackgroundImage")));
+			this->canvas->BackgroundImageLayout = System::Windows::Forms::ImageLayout::None;
+			this->canvas->Location = System::Drawing::Point(200, 50);
+			this->canvas->Name = L"canvas";
+			this->canvas->Size = System::Drawing::Size(769, 592);
+			this->canvas->TabIndex = 4;
 			// 
 			// VNTS_Canvas
 			// 
@@ -269,8 +252,6 @@ namespace VisualNTSystem
 			this->Load += gcnew System::EventHandler(this, &VNTS_Canvas::VNTS_Canvas_Load);
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->canvasHeader))->EndInit();
 			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->toolboxBackground))->EndInit();
-			this->canvas->ResumeLayout(false);
-			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->backgroundPictureBox))->EndInit();
 			this->ResumeLayout(false);
 			this->PerformLayout();
 
@@ -278,31 +259,38 @@ namespace VisualNTSystem
 #pragma endregion
 	//******************************** - Load Function - **************************************
 
-	private: System::Void VNTS_Canvas_Load(System::Object^ sender, System::EventArgs^ e)
-	{
-		// Check if the save file exists
-		if (System::IO::File::Exists("canvas_save.txt"))
-		{
-			System::IO::StreamReader^ reader = gcnew System::IO::StreamReader("canvas_save.txt");
-			int scrollX = System::Convert::ToInt32(reader->ReadLine());
-			int scrollY = System::Convert::ToInt32(reader->ReadLine());
-			zoomScale = System::Convert::ToSingle(reader->ReadLine());
+    private: System::Void VNTS_Canvas_Load(System::Object^ sender, System::EventArgs^ e)
+    {
+        // Create a ComponentResourceManager to access resources
+        System::ComponentModel::ComponentResourceManager^ resources = gcnew System::ComponentModel::ComponentResourceManager(VNTS_Canvas::typeid);
 
-			// Read the canvas name and convert it to System::String^
-			std::string canvasName = msclr::interop::marshal_as<std::string>(reader->ReadLine());
-			this->CanvasName->Text = gcnew System::String(canvasName.c_str());
+        // Set the virtual canvas size
+        this->canvas->AutoScrollMinSize = System::Drawing::Size(4096, 4096);
+        this->canvasBackground = (cli::safe_cast<System::Drawing::Bitmap^>(resources->GetObject(L"canvas.BackgroundImage")));
 
-			reader->Close();
+        if (System::IO::File::Exists("canvas_save.txt"))
+        {
+            System::IO::StreamReader^ reader = gcnew System::IO::StreamReader("canvas_save.txt");
+            int scrollX = System::Convert::ToInt32(reader->ReadLine());
+            int scrollY = System::Convert::ToInt32(reader->ReadLine());
+            zoomScale = System::Convert::ToSingle(reader->ReadLine());
+            std::string canvasName = msclr::interop::marshal_as<std::string>(reader->ReadLine());
+            this->CanvasName->Text = gcnew System::String(canvasName.c_str());
+            reader->Close();
 
-			// Apply the saved scroll position and zoom level
-			this->canvas->AutoScrollPosition = System::Drawing::Point(scrollX, scrollY); // Remove sign inversion
-			ResizeCanvasContent(System::Drawing::Point(0, 0)); // Adjust the canvas size based on the zoom level
-		}
-		else
-		{
-			Console::WriteLine("Save file not found.");
-		}
-	}
+            // Apply the saved scroll position and zoom level
+            this->canvas->AutoScrollPosition = System::Drawing::Point(scrollX, scrollY);
+        }
+        else
+        {
+            // Center the view on the canvas
+            int centerX = (4096 - this->canvas->ClientSize.Width) / 2;
+            int centerY = (4096 - this->canvas->ClientSize.Height) / 2;
+            this->canvas->AutoScrollPosition = System::Drawing::Point(centerX, centerY);
+            Console::WriteLine("Save file not found. Centering canvas.");
+        }
+    }
+
 
 
 
@@ -314,142 +302,38 @@ namespace VisualNTSystem
 	{
 
 	}
-	private: System::Void toolboxBackground_Click(System::Object^ sender, System::EventArgs^ e) {
-	}
-
-
-	private: System::Void SaveAndExit(System::Object^ sender, System::EventArgs^ e) 
+	private: System::Void toolboxBackground_Click(System::Object^ sender, System::EventArgs^ e) 
 	{
-		SaveButton_Click(sender, e);
-		Application::Exit();
+
 	}
 
-		   //************************************DRAG AND DROP***************************************
-				  
-
-
-	// Event handler for starting the drag operation
-	private: System::Void circleButton_MouseDown(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
-	{
-		this->classCircle->DoDragDrop("Class", DragDropEffects::Copy);
-	}
-
-		   // Event handler for allowing drag-and-drop
-	private: System::Void VNTS_Canvas_DragEnter(System::Object^ sender, System::Windows::Forms::DragEventArgs^ e)
-	{
-		if (e->Data->GetDataPresent(DataFormats::Text) && e->Data->GetData(DataFormats::Text)->ToString() == "Class")
-		{
-			e->Effect = DragDropEffects::Copy;
-		}
-		else
-		{
-			e->Effect = DragDropEffects::None;
-		}
-	}
 
 	
-
-
-		   // Event handler for handling the drop and drawing a circle
-	private: System::Void VNTS_Canvas_DragDrop(System::Object^ sender, System::Windows::Forms::DragEventArgs^ e)
+	private: System::Void Canvas_Paint(System::Object^ sender, System::Windows::Forms::PaintEventArgs^ e)
 	{
-		// Get the drop location relative to the form
-		Point dropLocation = this->PointToClient(Point(e->X, e->Y));
-
-		// Get the canvas's boundaries
-		System::Drawing::Rectangle canvasBounds = this->canvas->ClientRectangle;
-		canvasBounds.Location = this->canvas->PointToScreen(Point(0, 0));
-
-		// Check if the drop location is within the canvas
-		if (!canvasBounds.Contains(Point(e->X, e->Y)))
+		if (canvasBackground != nullptr)
 		{
-			// If the drop location is outside the canvas, do nothing
-			MessageBox::Show("Cannot place the object outside the canvas!", "Invalid Drop", MessageBoxButtons::OK, MessageBoxIcon::Warning);
-			return;
-		}
+			// Get the current scroll position
+			int scrollX = -this->canvas->AutoScrollPosition.X;
+			int scrollY = -this->canvas->AutoScrollPosition.Y;
 
-		// Adjust the drop location to be relative to the canvas
-		Point canvasRelativeLocation = this->canvas->PointToClient(Point(e->X, e->Y));
-
-		// Ensure the circle stays within the canvas boundaries
-		int circleRadius = 50; // Radius of the circle
-		int adjustedX = Math::Max(canvasRelativeLocation.X - circleRadius, 0);
-		adjustedX = Math::Min(adjustedX, this->canvas->ClientSize.Width - 2 * circleRadius);
-		int adjustedY = Math::Max(canvasRelativeLocation.Y - circleRadius, 0);
-		adjustedY = Math::Min(adjustedY, this->canvas->ClientSize.Height - 2 * circleRadius);
-
-		// Draw the circle
-		Graphics^ g = this->canvas->CreateGraphics();
-		g->FillEllipse(Brushes::DarkRed, adjustedX, adjustedY, 2 * circleRadius, 2 * circleRadius); // Draw a circle with diameter 100
-		delete g;
-	}
-
-
-
-
-
-		//**********************************************************************
-
-
-
-	   //*******************MOUSE SCROLLING*************************************
-	protected: virtual void OnMouseWheel(System::Windows::Forms::MouseEventArgs^ e) override
-	{
-		// Define zoom limits
-		const float MIN_ZOOM = 0.5f; // Minimum zoom scale (50%)
-		const float MAX_ZOOM = 5.0f; // Maximum zoom scale (300%)
-
-		// Adjust zoom scale based on scroll direction
-		if (e->Delta > 0) // Scroll up to zoom in
-		{
-			zoomScale = Math::Min(MAX_ZOOM, zoomScale + 0.1f); // Increase zoom scale, but not above MAX_ZOOM
-		}
-		else if (e->Delta < 0) // Scroll down to zoom out
-		{
-			zoomScale = Math::Max(MIN_ZOOM, zoomScale - 0.1f); // Decrease zoom scale, but not below MIN_ZOOM
-		}
-
-		// Resize the canvas content
-		ResizeCanvasContent(e->Location);
-	}
-
-	private: void ResizeCanvasContent(System::Drawing::Point mouseLocation)
-	{
-		// Ensure the canvas has a PictureBox
-		if (this->canvas->Controls->Count > 0)
-		{
-			System::Windows::Forms::PictureBox^ pictureBox = dynamic_cast<System::Windows::Forms::PictureBox^>(this->canvas->Controls[0]);
-			if (pictureBox != nullptr && originalImage != nullptr)
-			{
-				// Calculate the new size based on the zoom scale
-				int newWidth = static_cast<int>(originalImage->Width * zoomScale);
-				int newHeight = static_cast<int>(originalImage->Height * zoomScale);
-
-				// Create a new scaled image
-				Bitmap^ scaledImage = gcnew Bitmap(newWidth, newHeight);
-				Graphics^ g = Graphics::FromImage(scaledImage);
-				g->InterpolationMode = System::Drawing::Drawing2D::InterpolationMode::HighQualityBicubic;
-				g->DrawImage(originalImage, 0, 0, newWidth, newHeight);
-				delete g;
-
-				// Update the PictureBox with the scaled image
-				pictureBox->Image = scaledImage;
-				pictureBox->Size = System::Drawing::Size(newWidth, newHeight);
-
-				// Adjust the scroll position to keep the zoom centered around the mouse pointer
-				int currentScrollX = -this->canvas->AutoScrollPosition.X;
-				int currentScrollY = -this->canvas->AutoScrollPosition.Y;
-
-				int mouseX = mouseLocation.X + currentScrollX;
-				int mouseY = mouseLocation.Y + currentScrollY;
-
-				int newScrollX = static_cast<int>(mouseX * zoomScale / (zoomScale - 0.1f) - mouseX);
-				int newScrollY = static_cast<int>(mouseY * zoomScale / (zoomScale - 0.1f) - mouseY);
-
-				this->canvas->AutoScrollPosition = System::Drawing::Point(newScrollX, newScrollY);
-			}
+			// Draw the background image, offset by the scroll position
+			e->Graphics->DrawImage(canvasBackground, -scrollX, -scrollY, canvasBackground->Width, canvasBackground->Height);
 		}
 	}
+		  
+
+
+
+
+
+
+
+
+
+	   
+
+	//---------------------MOVE----------------------------
 
 
 	private: System::Void Canvas_MouseDown(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
@@ -458,47 +342,60 @@ namespace VisualNTSystem
 		{
 			isDragging = true;
 			lastMousePosition = e->Location;
-			Console::WriteLine("Mouse Down at: {0}, {1}", e->X, e->Y);
+			this->canvas->Cursor = Cursors::Hand; // Optional: change cursor for feedback
 		}
 	}
 
-   private: System::Void Canvas_MouseMove(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
-   {
-	   if (isDragging)
-	   {
-		   Console::WriteLine("Mouse Move at: {0}, {1}", e->X, e->Y);
-		   int offsetX = lastMousePosition.X - e->X;
-		   int offsetY = lastMousePosition.Y - e->Y;
-
-		   this->canvas->AutoScrollPosition = System::Drawing::Point(
-			   -this->canvas->AutoScrollPosition.X + offsetX,
-			   -this->canvas->AutoScrollPosition.Y + offsetY
-		   );
-
-		   lastMousePosition = e->Location;
-	   }
-   }
-
-   private: System::Void Canvas_MouseUp(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
-   {
-	   if (e->Button == System::Windows::Forms::MouseButtons::Left)
-	   {
-		   isDragging = false;
-		   Console::WriteLine("Mouse Up at: {0}, {1}", e->X, e->Y);
-	   }
-   }
-
-	private: System::Void Canvas_MouseEnter(System::Object^ sender, System::EventArgs^ e)
+	private: System::Void Canvas_MouseMove(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
 	{
-		this->canvas->Focus(); // Set focus to the canvas
+		if (isDragging)
+		{
+			// Calculate the difference
+			int dx = e->X - lastMousePosition.X;
+			int dy = e->Y - lastMousePosition.Y;
+
+			// Update the scroll position
+			int newScrollX = -this->canvas->AutoScrollPosition.X - dx;
+			int newScrollY = -this->canvas->AutoScrollPosition.Y - dy;
+			this->canvas->AutoScrollPosition = System::Drawing::Point(newScrollX, newScrollY);
+
+			// Update last position
+			lastMousePosition = e->Location;
+		}
 	}
 
-	private: System::Void Canvas_MouseWheel(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
+	private: System::Void Canvas_MouseUp(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
 	{
-		this->OnMouseWheel(e); // Call the existing OnMouseWheel method
+		if (e->Button == System::Windows::Forms::MouseButtons::Left)
+		{
+			isDragging = false;
+			this->canvas->Cursor = Cursors::Default; // Optional: reset cursor
+		}
 	}
 
-		   //**********************************************************************
+
+			   //**********************************************************************
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 	//******************************** - SAVE BUTTON - **************************************
@@ -522,10 +419,15 @@ namespace VisualNTSystem
 		MessageBox::Show("Canvas state saved!", "Save", MessageBoxButtons::OK, MessageBoxIcon::Information);
 	}
 
+	private: System::Void SaveAndExit(System::Object^ sender, System::EventArgs^ e)
+	{
+		SaveButton_Click(sender, e);
+		Application::Exit();
+	}
 
 
 
-};
+	};
 
 
 }
