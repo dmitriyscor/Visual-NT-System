@@ -99,6 +99,10 @@ namespace VisualNTSystem
 	private: System::Windows::Forms::Button^ SaveButton;
 	private: System::Windows::Forms::Label^ objects;
 
+    //NEW_NEW_NEW_NEW_NEW_NEW_NEW_NEW_NEW_NEW_NEW_NEW_NEW_NEW_NEW
+	private: System::Windows::Forms::Button^ moveableButton;
+	private: System::Windows::Forms::TextBox^ renameTextBox;
+
 	//dynamic stuff
 	private: System::Windows::Forms::Button^ classCircle;
 
@@ -117,6 +121,10 @@ namespace VisualNTSystem
 		/// </summary>
 		void InitializeComponent(void)
 		{
+
+
+
+
 			System::ComponentModel::ComponentResourceManager^ resources = (gcnew System::ComponentModel::ComponentResourceManager(VNTS_Canvas::typeid));
 			this->canvasHeader = (gcnew System::Windows::Forms::PictureBox());
 			this->toolboxBackground = (gcnew System::Windows::Forms::PictureBox());
@@ -238,6 +246,30 @@ namespace VisualNTSystem
 			this->canvas->Name = L"canvas";
 			this->canvas->Size = System::Drawing::Size(769, 592);
 			this->canvas->TabIndex = 4;
+
+
+			// 
+			// moveableButton
+			// 
+			this->moveableButton = (gcnew System::Windows::Forms::Button());
+			this->moveableButton->Location = System::Drawing::Point(250, 100); // Initial position
+			this->moveableButton->Size = System::Drawing::Size(120, 40);       // Size
+			this->moveableButton->Text = L"Move Me";
+			this->moveableButton->BackColor = System::Drawing::Color::FromArgb(60, 120, 200);
+			this->moveableButton->ForeColor = System::Drawing::Color::White;
+			this->moveableButton->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+
+			// Attach mouse events to moveableButton
+			this->moveableButton->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseDown);
+			this->moveableButton->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseMove);
+			this->moveableButton->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseUp);
+			this->moveableButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::MoveableButton_Click);
+
+			// Add to form controls
+			this->canvas->Controls->Add(this->moveableButton);
+
+
+
 			// 
 			// VNTS_Canvas
 			// 
@@ -341,6 +373,105 @@ namespace VisualNTSystem
 
 
 
+
+
+
+
+
+
+
+
+
+
+	private:
+		bool isButtonDragging = false;
+		System::Drawing::Point buttonDragOffset;
+
+	private: System::Void MoveableButton_MouseDown(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
+	{
+		if (e->Button == System::Windows::Forms::MouseButtons::Left)
+		{
+			isButtonDragging = true;
+			buttonDragOffset = e->Location;
+			this->moveableButton->Cursor = Cursors::Hand;
+		}
+	}
+
+	private: System::Void MoveableButton_MouseMove(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
+	{
+		if (isButtonDragging)
+		{
+			// Calculate new location relative to the canvas
+			System::Drawing::Point newLocation = this->moveableButton->Location;
+			newLocation.X += e->X - buttonDragOffset.X;
+			newLocation.Y += e->Y - buttonDragOffset.Y;
+
+			// Restrict newLocation so the button stays fully inside the canvas client area
+			int minX = 0;
+			int minY = 0;
+			int maxX = this->canvas->ClientSize.Width - this->moveableButton->Width;
+			int maxY = this->canvas->ClientSize.Height - this->moveableButton->Height;
+
+			newLocation.X = Math::Max(minX, Math::Min(newLocation.X, maxX));
+			newLocation.Y = Math::Max(minY, Math::Min(newLocation.Y, maxY));
+
+			this->moveableButton->Location = newLocation;
+		}
+	}
+
+	private: System::Void MoveableButton_MouseUp(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
+	{
+		if (e->Button == System::Windows::Forms::MouseButtons::Left)
+		{
+			isButtonDragging = false;
+			this->moveableButton->Cursor = Cursors::Default;
+		}
+	}
+
+
+	private: System::Void MoveableButton_Click(System::Object^ sender, System::EventArgs^ e)
+	{
+		// In MoveableButton_Click
+		if (renameTextBox == nullptr)
+		{
+			renameTextBox = gcnew System::Windows::Forms::TextBox();
+			renameTextBox->BorderStyle = System::Windows::Forms::BorderStyle::FixedSingle;
+			renameTextBox->Font = this->moveableButton->Font;
+			renameTextBox->Leave += gcnew System::EventHandler(this, &VNTS_Canvas::RenameTextBox_Leave);
+			renameTextBox->KeyDown += gcnew System::Windows::Forms::KeyEventHandler(this, &VNTS_Canvas::RenameTextBox_KeyDown);
+			this->canvas->Controls->Add(renameTextBox); // Add to canvas, not form
+		}
+
+		// Position and size the TextBox over the button
+		renameTextBox->Location = this->moveableButton->Location;
+		renameTextBox->Size = this->moveableButton->Size;
+		renameTextBox->Text = this->moveableButton->Text;
+		renameTextBox->Visible = true;
+		renameTextBox->BringToFront();
+		renameTextBox->Focus();
+		renameTextBox->SelectAll();
+	}
+
+	private: System::Void RenameTextBox_Leave(System::Object^ sender, System::EventArgs^ e)
+	{
+		this->moveableButton->Text = renameTextBox->Text;
+		renameTextBox->Visible = false;
+	}
+
+	private: System::Void RenameTextBox_KeyDown(System::Object^ sender, System::Windows::Forms::KeyEventArgs^ e)
+	{
+		if (e->KeyCode == System::Windows::Forms::Keys::Enter)
+		{
+			this->moveableButton->Text = renameTextBox->Text;
+			renameTextBox->Visible = false;
+			e->SuppressKeyPress = true;
+		}
+		else if (e->KeyCode == System::Windows::Forms::Keys::Escape)
+		{
+			renameTextBox->Visible = false;
+			e->SuppressKeyPress = true;
+		}
+	}
 
 
 
