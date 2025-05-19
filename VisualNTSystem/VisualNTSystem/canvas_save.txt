@@ -1,4 +1,8 @@
-2538
-629
+3
+0
 1
-Canvas 1
+New Canvas
+My new class
+98
+411
+END_BUTTONS

@@ -3,7 +3,10 @@
 #include <msclr/marshal_cppstd.h>
 
 #include <string>
-#include <map>
+
+#include <vector>
+#include <utility> // for std::pair
+
 #include "CircleClass.h" // Include the CircleClass header
 
 
@@ -25,6 +28,11 @@ namespace VisualNTSystem
 	/// 
 	public ref class VNTS_Canvas : public System::Windows::Forms::Form
 	{
+
+	private: System::Collections::Generic::List<System::Windows::Forms::Button^>^ classButtons;
+
+
+
 	public:
 
 		// Dimension of the VNTS_Canvas
@@ -43,9 +51,9 @@ namespace VisualNTSystem
 	private: System::Windows::Forms::TextBox^ CanvasName;
 
 
-	//obkects: classes and structures
-	private:
-		std::multimap<std::string, CircleClass>* circles_multimap;
+	
+
+
 	private: System::Windows::Forms::Panel^ canvas;
 
 	private: Bitmap^ canvasBackground;
@@ -66,6 +74,8 @@ namespace VisualNTSystem
 			//
 
 			this->AllowDrop = true;
+			classButtons = gcnew System::Collections::Generic::List<System::Windows::Forms::Button^>();
+
 			
 			//move
 			this->canvas->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseDown);
@@ -77,6 +87,9 @@ namespace VisualNTSystem
 			//scroll
 			this->canvas->MouseWheel += gcnew MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseWheel);
 			this->canvas->Focus();
+
+
+			this->classCircle->Click += gcnew System::EventHandler(this, &VNTS_Canvas::ClassCircle_Click);
 
 		}
 
@@ -90,7 +103,6 @@ namespace VisualNTSystem
 			{
 				delete components;
 			}
-			delete this->circles_multimap;
 		}
 
 	private: System::Windows::Forms::PictureBox^ canvasHeader;
@@ -296,8 +308,10 @@ namespace VisualNTSystem
 
 		}
 #pragma endregion
-	//******************************** - Load Function - **************************************
 
+	//***********************************************************************************
+	//******************************** - Load Function - **************************************  #1
+	//*********************************************************************************** 
     private: System::Void VNTS_Canvas_Load(System::Object^ sender, System::EventArgs^ e)
     {
         // Create a ComponentResourceManager to access resources
@@ -315,6 +329,37 @@ namespace VisualNTSystem
             zoomScale = System::Convert::ToSingle(reader->ReadLine());
             std::string canvasName = msclr::interop::marshal_as<std::string>(reader->ReadLine());
             this->CanvasName->Text = gcnew System::String(canvasName.c_str());
+
+			// Remove old buttons if any
+			for each(System::Windows::Forms::Button ^ btn in classButtons)
+				this->canvas->Controls->Remove(btn);
+			classButtons->Clear();
+
+			// Read buttons
+			while (!reader->EndOfStream)
+			{
+				System::String^ name = reader->ReadLine();
+				if (name == "END_BUTTONS") break;
+				int x = System::Convert::ToInt32(reader->ReadLine());
+				int y = System::Convert::ToInt32(reader->ReadLine());
+
+				System::Windows::Forms::Button^ btn = gcnew System::Windows::Forms::Button();
+				btn->Text = name;
+				btn->Size = System::Drawing::Size(120, 40);
+				btn->Location = System::Drawing::Point(x, y);
+				btn->BackColor = System::Drawing::Color::FromArgb(60, 120, 200);
+				btn->ForeColor = System::Drawing::Color::White;
+				btn->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+				btn->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseDown);
+				btn->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseMove);
+				btn->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseUp);
+				btn->Click += gcnew System::EventHandler(this, &VNTS_Canvas::MoveableButton_Click);
+
+				this->canvas->Controls->Add(btn);
+				classButtons->Add(btn);
+			}
+
+
             reader->Close();
 
             // Apply the saved scroll position and zoom level
@@ -330,24 +375,50 @@ namespace VisualNTSystem
         }
     }
 
-	
-
-
-
-
-
-
-	private: System::Void pictureBox1_Click(System::Object^ sender, System::EventArgs^ e)
+	//*************************************************************************************  #1
+	 
+	//*********************************************************************************** 
+	//******************************** - SAVE BUTTON - ************************************** #2
+	//*********************************************************************************** 
+	private: System::Void SaveButton_Click(System::Object^ sender, System::EventArgs^ e)
 	{
+		// Get the current scroll position
+		int scrollX = -this->canvas->AutoScrollPosition.X;
+		int scrollY = -this->canvas->AutoScrollPosition.Y;
 
+		// Convert System::String^ to std::string
+		std::string canvasName = msclr::interop::marshal_as<std::string>(this->CanvasName->Text);
+
+		// Save the scroll position, zoom level, and canvas name to a file
+		System::IO::StreamWriter^ writer = gcnew System::IO::StreamWriter("canvas_save.txt");
+		writer->WriteLine(scrollX);
+		writer->WriteLine(scrollY);
+		writer->WriteLine(zoomScale);
+		writer->WriteLine(gcnew System::String(canvasName.c_str())); // Save the canvas name
+
+		// Save all class buttons
+		for each (System::Windows::Forms::Button ^ btn in classButtons)
+		{
+			writer->WriteLine(btn->Text);
+			writer->WriteLine(btn->Location.X);
+			writer->WriteLine(btn->Location.Y);
+		}
+		writer->WriteLine("END_BUTTONS"); // Mark end of buttons
+
+		writer->Close();
+
+		MessageBox::Show("Canvas state saved!", "Save", MessageBoxButtons::OK, MessageBoxIcon::Information);
 	}
-	private: System::Void toolboxBackground_Click(System::Object^ sender, System::EventArgs^ e) 
+
+	private: System::Void SaveAndExit(System::Object^ sender, System::EventArgs^ e)
 	{
-
+		SaveButton_Click(sender, e);
+		Application::Exit();
 	}
 
+	 //*********************************************************************************** #2
 
-	
+	//************************************** - Create Canvas - *********************************************
 	private: System::Void Canvas_Paint(System::Object^ sender, System::Windows::Forms::PaintEventArgs^ e)
 	{
 		if (canvasBackground != nullptr)
@@ -368,20 +439,10 @@ namespace VisualNTSystem
 			);
 		}
 	}
-		  
+	 //*********************************************************************************** 
 
 
-
-
-
-
-
-
-
-
-
-
-
+	//************************************** - MOVEABLE BUTTON - *********************************************
 
 	private:
 		bool isButtonDragging = false;
@@ -393,89 +454,148 @@ namespace VisualNTSystem
 		{
 			isButtonDragging = true;
 			buttonDragOffset = e->Location;
-			this->moveableButton->Cursor = Cursors::Hand;
+			moveableButton = safe_cast<System::Windows::Forms::Button^>(sender); // Track which button is being moved
+			moveableButton->Cursor = Cursors::Hand;
 		}
 	}
 
 	private: System::Void MoveableButton_MouseMove(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
 	{
-		if (isButtonDragging)
+		if (isButtonDragging && moveableButton != nullptr)
 		{
-			// Calculate new location relative to the canvas
-			System::Drawing::Point newLocation = this->moveableButton->Location;
+			System::Drawing::Point newLocation = moveableButton->Location;
 			newLocation.X += e->X - buttonDragOffset.X;
 			newLocation.Y += e->Y - buttonDragOffset.Y;
 
-			// Restrict newLocation so the button stays fully inside the canvas client area
 			int minX = 0;
 			int minY = 0;
-			int maxX = this->canvas->ClientSize.Width - this->moveableButton->Width;
-			int maxY = this->canvas->ClientSize.Height - this->moveableButton->Height;
+			int maxX = this->canvas->ClientSize.Width - moveableButton->Width;
+			int maxY = this->canvas->ClientSize.Height - moveableButton->Height;
 
 			newLocation.X = Math::Max(minX, Math::Min(newLocation.X, maxX));
 			newLocation.Y = Math::Max(minY, Math::Min(newLocation.Y, maxY));
 
-			this->moveableButton->Location = newLocation;
+			// Check for collision with other buttons
+			System::Drawing::Rectangle newRect(newLocation, moveableButton->Size);
+			if (!IsButtonColliding(newRect, moveableButton))
+			{
+				moveableButton->Location = newLocation;
+			}
+			// else: do not move if it would overlap
 		}
 	}
 
 	private: System::Void MoveableButton_MouseUp(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
 	{
-		if (e->Button == System::Windows::Forms::MouseButtons::Left)
+		if (e->Button == System::Windows::Forms::MouseButtons::Left && moveableButton != nullptr)
 		{
 			isButtonDragging = false;
-			this->moveableButton->Cursor = Cursors::Default;
+			moveableButton->Cursor = Cursors::Default;
+			moveableButton = nullptr;
 		}
 	}
 
-
 	private: System::Void MoveableButton_Click(System::Object^ sender, System::EventArgs^ e)
 	{
-		// In MoveableButton_Click
+		System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(sender);
 		if (renameTextBox == nullptr)
 		{
 			renameTextBox = gcnew System::Windows::Forms::TextBox();
 			renameTextBox->BorderStyle = System::Windows::Forms::BorderStyle::FixedSingle;
-			renameTextBox->Font = this->moveableButton->Font;
+			renameTextBox->Font = btn->Font;
 			renameTextBox->Leave += gcnew System::EventHandler(this, &VNTS_Canvas::RenameTextBox_Leave);
 			renameTextBox->KeyDown += gcnew System::Windows::Forms::KeyEventHandler(this, &VNTS_Canvas::RenameTextBox_KeyDown);
-			this->canvas->Controls->Add(renameTextBox); // Add to canvas, not form
+			this->canvas->Controls->Add(renameTextBox);
 		}
-
-		// Position and size the TextBox over the button
-		renameTextBox->Location = this->moveableButton->Location;
-		renameTextBox->Size = this->moveableButton->Size;
-		renameTextBox->Text = this->moveableButton->Text;
+		renameTextBox->Location = btn->Location;
+		renameTextBox->Size = btn->Size;
+		renameTextBox->Text = btn->Text;
+		renameTextBox->Tag = btn; // Store which button is being renamed
 		renameTextBox->Visible = true;
 		renameTextBox->BringToFront();
 		renameTextBox->Focus();
 		renameTextBox->SelectAll();
 	}
 
+
+	bool VNTS_Canvas::IsButtonColliding(System::Drawing::Rectangle rect, System::Windows::Forms::Button^ ignoreBtn)
+	{
+		for each (System::Windows::Forms::Button ^ btn in classButtons)
+		{
+			if (btn == ignoreBtn) continue;
+			if (rect.IntersectsWith(System::Drawing::Rectangle(btn->Location, btn->Size)))
+				return true;
+		}
+		return false;
+	}
+
 	private: System::Void RenameTextBox_Leave(System::Object^ sender, System::EventArgs^ e)
 	{
-		this->moveableButton->Text = renameTextBox->Text;
+		if (renameTextBox->Tag != nullptr)
+		{
+			System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(renameTextBox->Tag);
+			btn->Text = renameTextBox->Text;
+		}
 		renameTextBox->Visible = false;
+		renameTextBox->Tag = nullptr;
 	}
 
 	private: System::Void RenameTextBox_KeyDown(System::Object^ sender, System::Windows::Forms::KeyEventArgs^ e)
 	{
 		if (e->KeyCode == System::Windows::Forms::Keys::Enter)
 		{
-			this->moveableButton->Text = renameTextBox->Text;
-			renameTextBox->Visible = false;
+			RenameTextBox_Leave(sender, e);
 			e->SuppressKeyPress = true;
 		}
 		else if (e->KeyCode == System::Windows::Forms::Keys::Escape)
 		{
 			renameTextBox->Visible = false;
+			renameTextBox->Tag = nullptr;
 			e->SuppressKeyPress = true;
 		}
 	}
 
 
 
+	private: System::Void ClassCircle_Click(System::Object^ sender, System::EventArgs^ e)
+	{
+		System::Drawing::Size btnSize(120, 40);
+		int startX = 50, startY = 50;
+		int step = 30;
+		System::Drawing::Point pos;
+		bool found = false;
 
+		// Try to find a free spot
+		for (int i = 0; i < 100 && !found; ++i)
+		{
+			pos = System::Drawing::Point(startX + step * i, startY + step * i);
+			System::Drawing::Rectangle rect(pos, btnSize);
+			if (!IsButtonColliding(rect, nullptr))
+				found = true;
+		}
+		if (!found)
+		{
+			MessageBox::Show("No free space to place a new class button.", "Error", MessageBoxButtons::OK, MessageBoxIcon::Warning);
+			return;
+		}
+
+		System::Windows::Forms::Button^ newButton = gcnew System::Windows::Forms::Button();
+		newButton->Text = L"New Class";
+		newButton->Size = btnSize;
+		newButton->Location = pos;
+		newButton->BackColor = System::Drawing::Color::FromArgb(60, 120, 200);
+		newButton->ForeColor = System::Drawing::Color::White;
+		newButton->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+
+		// Add move/rename handlers
+		newButton->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseDown);
+		newButton->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseMove);
+		newButton->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseUp);
+		newButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::MoveableButton_Click);
+
+		this->canvas->Controls->Add(newButton);
+		classButtons->Add(newButton);
+	}
 
 	   
 
@@ -527,10 +647,10 @@ namespace VisualNTSystem
 	private: System::Void Canvas_MouseWheel(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
 	{
 		float oldZoom = zoomScale;
-		if (e->Delta > 0 && zoomScale < 2.0f)
-			zoomScale += 0.1f;
-		else if (e->Delta < 0 && zoomScale > 1.0f)
-			zoomScale -= 0.1f;
+		//if (e->Delta > 0 && zoomScale < 2.0f)
+			//zoomScale += 0.1f;
+		//else if (e->Delta < 0 && zoomScale > 1.0f)
+			//zoomScale -= 0.1f;
 
 		if (zoomScale != oldZoom)
 		{
@@ -538,6 +658,7 @@ namespace VisualNTSystem
 			this->canvas->Invalidate(); // Redraw canvas
 		}
 	}
+	//***********************************************************************************
 
 
 
@@ -556,32 +677,16 @@ namespace VisualNTSystem
 
 
 
+	
 
-	//******************************** - SAVE BUTTON - **************************************
-	private: System::Void SaveButton_Click(System::Object^ sender, System::EventArgs^ e)
+
+	private: System::Void pictureBox1_Click(System::Object^ sender, System::EventArgs^ e)
 	{
-		// Get the current scroll position
-		int scrollX = -this->canvas->AutoScrollPosition.X;
-		int scrollY = -this->canvas->AutoScrollPosition.Y;
 
-		// Convert System::String^ to std::string
-		std::string canvasName = msclr::interop::marshal_as<std::string>(this->CanvasName->Text);
-
-		// Save the scroll position, zoom level, and canvas name to a file
-		System::IO::StreamWriter^ writer = gcnew System::IO::StreamWriter("canvas_save.txt");
-		writer->WriteLine(scrollX);
-		writer->WriteLine(scrollY);
-		writer->WriteLine(zoomScale);
-		writer->WriteLine(gcnew System::String(canvasName.c_str())); // Save the canvas name
-		writer->Close();
-
-		MessageBox::Show("Canvas state saved!", "Save", MessageBoxButtons::OK, MessageBoxIcon::Information);
 	}
-
-	private: System::Void SaveAndExit(System::Object^ sender, System::EventArgs^ e)
+	private: System::Void toolboxBackground_Click(System::Object^ sender, System::EventArgs^ e)
 	{
-		SaveButton_Click(sender, e);
-		Application::Exit();
+
 	}
 
 
