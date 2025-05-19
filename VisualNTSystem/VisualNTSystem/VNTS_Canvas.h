@@ -278,7 +278,7 @@ namespace VisualNTSystem
 			this->moveableButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::MoveableButton_Click);
 
 			// Add to form controls
-			this->canvas->Controls->Add(this->moveableButton);
+			//this->canvas->Controls->Add(this->moveableButton);
 
 
 
@@ -446,15 +446,19 @@ namespace VisualNTSystem
 
 	private:
 		bool isButtonDragging = false;
+		bool wasButtonDragged = false;
 		System::Drawing::Point buttonDragOffset;
+		System::Drawing::Point buttonOriginalLocation;
 
 	private: System::Void MoveableButton_MouseDown(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
 	{
 		if (e->Button == System::Windows::Forms::MouseButtons::Left)
 		{
 			isButtonDragging = true;
+			wasButtonDragged = false; // Reset drag flag
 			buttonDragOffset = e->Location;
-			moveableButton = safe_cast<System::Windows::Forms::Button^>(sender); // Track which button is being moved
+			buttonOriginalLocation = safe_cast<System::Windows::Forms::Button^>(sender)->Location; // Store original location
+			moveableButton = safe_cast<System::Windows::Forms::Button^>(sender);
 			moveableButton->Cursor = Cursors::Hand;
 		}
 	}
@@ -475,13 +479,17 @@ namespace VisualNTSystem
 			newLocation.X = Math::Max(minX, Math::Min(newLocation.X, maxX));
 			newLocation.Y = Math::Max(minY, Math::Min(newLocation.Y, maxY));
 
-			// Check for collision with other buttons
 			System::Drawing::Rectangle newRect(newLocation, moveableButton->Size);
 			if (!IsButtonColliding(newRect, moveableButton))
 			{
 				moveableButton->Location = newLocation;
+				// If the button has moved more than a few pixels, consider it a drag
+				if (Math::Abs(newLocation.X - buttonOriginalLocation.X) > 3 ||
+					Math::Abs(newLocation.Y - buttonOriginalLocation.Y) > 3)
+				{
+					wasButtonDragged = true;
+				}
 			}
-			// else: do not move if it would overlap
 		}
 	}
 
@@ -497,6 +505,9 @@ namespace VisualNTSystem
 
 	private: System::Void MoveableButton_Click(System::Object^ sender, System::EventArgs^ e)
 	{
+		if (wasButtonDragged)
+			return; // Don't rename if it was a drag
+
 		System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(sender);
 		if (renameTextBox == nullptr)
 		{
@@ -510,7 +521,7 @@ namespace VisualNTSystem
 		renameTextBox->Location = btn->Location;
 		renameTextBox->Size = btn->Size;
 		renameTextBox->Text = btn->Text;
-		renameTextBox->Tag = btn; // Store which button is being renamed
+		renameTextBox->Tag = btn;
 		renameTextBox->Visible = true;
 		renameTextBox->BringToFront();
 		renameTextBox->Focus();

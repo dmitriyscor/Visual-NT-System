@@ -1,8 +1,11 @@
-3
 0
+4
 1
 New Canvas
-My new class
-98
-411
+Class 1
+438
+187
+New class 2
+275
+249
 END_BUTTONS
