@@ -8,6 +8,7 @@
 #include <utility> // for std::pair
 
 #include "CircleClass.h" // Include the CircleClass header
+#include "InnerWindow.h"
 
 
 
@@ -51,12 +52,17 @@ namespace VisualNTSystem
 	private: System::Windows::Forms::TextBox^ CanvasName;
 
 
-	
+			 System::Windows::Forms::Panel^ canvas;
 
+			 Bitmap^ canvasBackground;
 
-	private: System::Windows::Forms::Panel^ canvas;
+			//for opening a new window
+			System::Windows::Forms::Timer^ clickTimer;
+			System::Windows::Forms::Button^ pendingRenameButton;
+			int clickDelayMs = 200; // 0.2 seconds
+			bool awaitingSecondClick = false;
+			System::Windows::Forms::Button^ lastClickedButton = nullptr;
 
-	private: Bitmap^ canvasBackground;
 
 	
 
@@ -90,6 +96,11 @@ namespace VisualNTSystem
 
 
 			this->classCircle->Click += gcnew System::EventHandler(this, &VNTS_Canvas::ClassCircle_Click);
+			
+
+			clickTimer = gcnew System::Windows::Forms::Timer();
+			clickTimer->Interval = clickDelayMs;
+			clickTimer->Tick += gcnew System::EventHandler(this, &VNTS_Canvas::ClickTimer_Tick);
 
 		}
 
@@ -126,6 +137,7 @@ namespace VisualNTSystem
 		/// </summary>
 		System::ComponentModel::Container^ components;
 
+
 #pragma region Windows Form Designer generated code
 		/// <summary>
 		/// Required method for Designer support - do not modify
@@ -146,9 +158,8 @@ namespace VisualNTSystem
 			this->classCircle = (gcnew System::Windows::Forms::Button());
 			this->CanvasName = (gcnew System::Windows::Forms::TextBox());
 			this->canvas = (gcnew System::Windows::Forms::Panel());
-			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->canvasHeader))->BeginInit();
-			(cli::safe_cast<System::ComponentModel::ISupportInitialize^>(this->toolboxBackground))->BeginInit();
-			this->SuspendLayout();
+		
+            
 			// 
 			// canvasHeader
 			// 
@@ -275,7 +286,7 @@ namespace VisualNTSystem
 			this->moveableButton->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseDown);
 			this->moveableButton->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseMove);
 			this->moveableButton->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseUp);
-			this->moveableButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::MoveableButton_Click);
+			this->moveableButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::ClassButton_Click);
 
 			// Add to form controls
 			//this->canvas->Controls->Add(this->moveableButton);
@@ -353,7 +364,8 @@ namespace VisualNTSystem
 				btn->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseDown);
 				btn->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseMove);
 				btn->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseUp);
-				btn->Click += gcnew System::EventHandler(this, &VNTS_Canvas::MoveableButton_Click);
+
+				btn->Click += gcnew System::EventHandler(this, &VNTS_Canvas::ClassButton_Click);
 
 				this->canvas->Controls->Add(btn);
 				classButtons->Add(btn);
@@ -441,9 +453,9 @@ namespace VisualNTSystem
 	}
 	 //*********************************************************************************** 
 
-
-	//************************************** - MOVEABLE BUTTON - *********************************************
-
+	//*********************************************************************************** 
+	//************************************** - MOVEABLE BUTTON - ********************************************* #3
+	//*********************************************************************************** 
 	private:
 		bool isButtonDragging = false;
 		bool wasButtonDragged = false;
@@ -503,30 +515,7 @@ namespace VisualNTSystem
 		}
 	}
 
-	private: System::Void MoveableButton_Click(System::Object^ sender, System::EventArgs^ e)
-	{
-		if (wasButtonDragged)
-			return; // Don't rename if it was a drag
-
-		System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(sender);
-		if (renameTextBox == nullptr)
-		{
-			renameTextBox = gcnew System::Windows::Forms::TextBox();
-			renameTextBox->BorderStyle = System::Windows::Forms::BorderStyle::FixedSingle;
-			renameTextBox->Font = btn->Font;
-			renameTextBox->Leave += gcnew System::EventHandler(this, &VNTS_Canvas::RenameTextBox_Leave);
-			renameTextBox->KeyDown += gcnew System::Windows::Forms::KeyEventHandler(this, &VNTS_Canvas::RenameTextBox_KeyDown);
-			this->canvas->Controls->Add(renameTextBox);
-		}
-		renameTextBox->Location = btn->Location;
-		renameTextBox->Size = btn->Size;
-		renameTextBox->Text = btn->Text;
-		renameTextBox->Tag = btn;
-		renameTextBox->Visible = true;
-		renameTextBox->BringToFront();
-		renameTextBox->Focus();
-		renameTextBox->SelectAll();
-	}
+	
 
 
 	bool VNTS_Canvas::IsButtonColliding(System::Drawing::Rectangle rect, System::Windows::Forms::Button^ ignoreBtn)
@@ -598,20 +587,86 @@ namespace VisualNTSystem
 		newButton->ForeColor = System::Drawing::Color::White;
 		newButton->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
 
-		// Add move/rename handlers
+		// Attach single and double click handlers for rename/open logic
+		newButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::ClassButton_Click);
+
+		// Attach move handlers
 		newButton->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseDown);
 		newButton->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseMove);
 		newButton->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseUp);
-		newButton->Click += gcnew System::EventHandler(this, &VNTS_Canvas::MoveableButton_Click);
 
 		this->canvas->Controls->Add(newButton);
 		classButtons->Add(newButton);
 	}
 
+	private: System::Void ClassButton_Click(System::Object^ sender, System::EventArgs^ e)
+	{
+		System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(sender);
+
+		if (awaitingSecondClick && lastClickedButton == btn)
+		{
+			// Detected a double-click
+			awaitingSecondClick = false;
+			clickTimer->Stop();
+			lastClickedButton = nullptr;
+
+			// Open the window
+			System::String^ className = btn->Text;
+			System::String^ canvasName = this->CanvasName->Text;
+			System::String^ windowTitle = canvasName + "->" + className;
+			InnerWindow^ innerWin = gcnew InnerWindow(windowTitle);
+			innerWin->Show();
+		}
+		else
+		{
+			// First click: start timer and wait for possible double-click
+			awaitingSecondClick = true;
+			lastClickedButton = btn;
+			clickTimer->Stop();
+			clickTimer->Start();
+		}
+	}
+
+	//rename the class 
+	private: void ShowRenameTextBox(System::Windows::Forms::Button^ btn)
+	{
+		if (renameTextBox == nullptr)
+		{
+			renameTextBox = gcnew System::Windows::Forms::TextBox();
+			renameTextBox->BorderStyle = System::Windows::Forms::BorderStyle::FixedSingle;
+			renameTextBox->Font = btn->Font;
+			renameTextBox->Leave += gcnew System::EventHandler(this, &VNTS_Canvas::RenameTextBox_Leave);
+			renameTextBox->KeyDown += gcnew System::Windows::Forms::KeyEventHandler(this, &VNTS_Canvas::RenameTextBox_KeyDown);
+			this->canvas->Controls->Add(renameTextBox);
+		}
+		renameTextBox->Location = btn->Location;
+		renameTextBox->Size = btn->Size;
+		renameTextBox->Text = btn->Text;
+		renameTextBox->Tag = btn;
+		renameTextBox->Visible = true;
+		renameTextBox->BringToFront();
+		renameTextBox->Focus();
+		renameTextBox->SelectAll();
+	}
+
+
+	private: System::Void ClickTimer_Tick(System::Object^ sender, System::EventArgs^ e)
+	{
+		clickTimer->Stop();
+		if (awaitingSecondClick && lastClickedButton != nullptr)
+		{
+			// Timer expired, treat as single click (rename)
+			ShowRenameTextBox(lastClickedButton);
+		}
+		awaitingSecondClick = false;
+		lastClickedButton = nullptr;
+	}
+
+
 	   
-
-	//---------------------MOVE----------------------------
-
+	//***********************************************************************************
+	//---------------------MOVE---------------------------- #4
+	//*********************************************************************************** 
 
 	private: System::Void Canvas_MouseDown(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
 	{
@@ -672,23 +727,11 @@ namespace VisualNTSystem
 	//***********************************************************************************
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 	
+
+
+
+
 
 
 	private: System::Void pictureBox1_Click(System::Object^ sender, System::EventArgs^ e)

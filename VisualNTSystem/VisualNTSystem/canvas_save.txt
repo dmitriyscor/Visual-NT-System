@@ -4,8 +4,11 @@
 New Canvas
 Class 1
 438
-187
+183
 New class 2
 275
-249
+245
+Class 3
+70
+317
 END_BUTTONS
