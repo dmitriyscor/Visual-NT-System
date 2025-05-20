@@ -52,16 +52,17 @@ namespace VisualNTSystem
 	private: System::Windows::Forms::TextBox^ CanvasName;
 
 
-			 System::Windows::Forms::Panel^ canvas;
+	System::Windows::Forms::Panel^ canvas;
 
-			 Bitmap^ canvasBackground;
+	Bitmap^ canvasBackground;
 
-			//for opening a new window
-			System::Windows::Forms::Timer^ clickTimer;
-			System::Windows::Forms::Button^ pendingRenameButton;
-			int clickDelayMs = 200; // 0.2 seconds
-			bool awaitingSecondClick = false;
-			System::Windows::Forms::Button^ lastClickedButton = nullptr;
+
+	//for opening a new window
+	System::Windows::Forms::Timer^ clickTimer;
+	System::Windows::Forms::Button^ pendingRenameButton;
+	int clickDelayMs = 200; // 0.2 seconds
+	bool awaitingSecondClick = false;
+	System::Windows::Forms::Button^ lastClickedButton = nullptr;
 
 
 	
@@ -263,7 +264,7 @@ namespace VisualNTSystem
 			// canvas
 			// 
 			this->canvas->AutoScroll = true;
-			//this->canvas->BackgroundImage = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"canvas.BackgroundImage")));
+			this->canvas->BackgroundImage = (cli::safe_cast<System::Drawing::Image^>(resources->GetObject(L"canvas.BackgroundImage")));
 			this->canvas->BackgroundImageLayout = System::Windows::Forms::ImageLayout::None;
 			this->canvas->Location = System::Drawing::Point(200, 50);
 			this->canvas->Name = L"canvas";

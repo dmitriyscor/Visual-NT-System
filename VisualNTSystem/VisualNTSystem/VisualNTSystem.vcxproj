@@ -136,6 +136,7 @@
   <ItemGroup>
     <EmbeddedResource Include="InnerWindow.resx">
       <DependentUpon>InnerWindow.h</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="VNTS_Canvas.resx">
       <DependentUpon>VNTS_Canvas.h</DependentUpon>
