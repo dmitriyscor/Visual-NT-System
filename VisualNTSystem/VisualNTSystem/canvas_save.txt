@@ -1,14 +1,17 @@
-0
-4
+51
+3
 1
 New Canvas
 Class 1
-438
-183
-New class 2
-275
-245
+387
+176
+Trofik
+193
+316
 Class 3
-70
-317
+168
+382
+flwef
+429
+356
 END_BUTTONS
