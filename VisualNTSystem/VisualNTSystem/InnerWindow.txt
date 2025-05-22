@@ -1,0 +1,11 @@
+0
+0
+1
+InnerWindow
+My note
+{
+x=250
+y=100
+value=test
+}
+end

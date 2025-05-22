@@ -1,20 +1,20 @@
-51
-3
+0
+0
 1
 My New Canvas
 fbwfwen
-154
-164
+293
+370
 Trofik
-91
-310
+481
+314
 Class 3
 66
 376
 flwef
-327
-350
+392
+427
 New Class
-390
-184
+568
+198
 END_BUTTONS

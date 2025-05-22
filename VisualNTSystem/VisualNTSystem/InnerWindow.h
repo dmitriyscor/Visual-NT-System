@@ -23,7 +23,20 @@ namespace VisualNTSystem {
 		System::Windows::Forms::TextBox^ CanvasName;
 		Bitmap^ canvasBackground;
 
+	private:
+		System::Collections::Generic::List<System::Windows::Forms::Button^>^ noteButtons;
+		System::Windows::Forms::TextBox^ renameTextBox;
+		System::Windows::Forms::TextBox^ valueTextBox;
+		System::Windows::Forms::Button^ lastClickedButton;
+		System::Windows::Forms::Timer^ clickTimer;
+		int clickDelayMs = 200;
+		bool awaitingSecondClick = false;
+		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>^ noteValues;
+
+
 	public:
+		InnerWindow() : InnerWindow("InnerWindow") {}
+
 		InnerWindow(System::String^ windowTitle)
 		{
 			InitializeComponent(windowTitle);
@@ -41,6 +54,14 @@ namespace VisualNTSystem {
 			this->canvas->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Canvas_MouseUp);
 
 			this->canvas->Paint += gcnew PaintEventHandler(this, &InnerWindow::Canvas_Paint);
+
+
+			noteButtons = gcnew System::Collections::Generic::List<System::Windows::Forms::Button^>();
+			noteValues = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>();
+			clickTimer = gcnew System::Windows::Forms::Timer();
+			clickTimer->Interval = clickDelayMs;
+			clickTimer->Tick += gcnew System::EventHandler(this, &InnerWindow::ClickTimer_Tick);
+
 
 
 		}
@@ -129,6 +150,18 @@ namespace VisualNTSystem {
 			this->canvasHeader->Size = System::Drawing::Size(960, 50);
 			this->canvasHeader->TabIndex = 1;
 			this->canvasHeader->TabStop = false;
+			//
+			// Note Button 
+			//
+			System::Windows::Forms::Button^ noteButton = gcnew System::Windows::Forms::Button();
+			noteButton->Text = L"Note";
+			noteButton->Location = System::Drawing::Point(20, 50);
+			noteButton->Size = System::Drawing::Size(160, 40);
+			noteButton->BackColor = System::Drawing::Color::FromArgb(60, 120, 200);
+			noteButton->ForeColor = System::Drawing::Color::White;
+			noteButton->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+			noteButton->Click += gcnew System::EventHandler(this, &InnerWindow::NoteButton_Click);
+			this->Controls->Add(noteButton);
 			// 
 			// SaveButton
 			// 
@@ -162,6 +195,8 @@ namespace VisualNTSystem {
 			this->SaveAndExitButton->TabIndex = 11;
 			this->SaveAndExitButton->Text = L"Save And Go Back";
 			this->SaveAndExitButton->UseVisualStyleBackColor = false;
+			this->SaveButton->Click += gcnew System::EventHandler(this, &InnerWindow::SaveButton_Click);
+
 			// 
 			// canvas
 			// 
@@ -268,8 +303,7 @@ namespace VisualNTSystem {
 			int scrollX = -this->canvas->AutoScrollPosition.X;
 			int scrollY = -this->canvas->AutoScrollPosition.Y;
 
-			// Apply zoom
-			e->Graphics->ScaleTransform(zoomScale, zoomScale);
+			
 
 			// Draw the background image at the correct position and scale
 			e->Graphics->DrawImage(
@@ -344,6 +378,192 @@ namespace VisualNTSystem {
 
 
 
+	bool isNoteDragging = false;
+	System::Drawing::Point noteDragOffset;
+	System::Windows::Forms::Button^ draggingNote = nullptr;
+
+
+
+	private: System::Void NoteButton_Click(System::Object^ sender, System::EventArgs^ e)
+	{
+		System::Windows::Forms::Button^ note = gcnew System::Windows::Forms::Button();
+		note->Text = L"New Note";
+		note->Size = System::Drawing::Size(120, 40);
+		note->Location = System::Drawing::Point(250, 100 + noteButtons->Count * 50);
+		note->BackColor = System::Drawing::Color::FromArgb(60, 120, 200);
+		note->ForeColor = System::Drawing::Color::White;
+		note->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+
+		note->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
+		note->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
+		note->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
+		note->Click += gcnew System::EventHandler(this, &InnerWindow::Note_Click);
+
+		this->canvas->Controls->Add(note);
+		noteButtons->Add(note);
+		noteValues[note] = "";
+	}
+
+
+	private: System::Void Note_MouseDown(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
+	{
+		if (e->Button == System::Windows::Forms::MouseButtons::Left)
+		{
+			isNoteDragging = true;
+			draggingNote = safe_cast<System::Windows::Forms::Button^>(sender);
+			noteDragOffset = e->Location;
+			draggingNote->Cursor = Cursors::Hand;
+		}
+	}
+
+	private: System::Void Note_MouseMove(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
+	{
+		if (isNoteDragging && draggingNote != nullptr)
+		{
+			System::Drawing::Point newLocation = draggingNote->Location;
+			newLocation.X += e->X - noteDragOffset.X;
+			newLocation.Y += e->Y - noteDragOffset.Y;
+			draggingNote->Location = newLocation;
+		}
+	}
+
+	private: System::Void Note_MouseUp(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
+	{
+		if (e->Button == System::Windows::Forms::MouseButtons::Left && draggingNote != nullptr)
+		{
+			isNoteDragging = false;
+			draggingNote->Cursor = Cursors::Default;
+			draggingNote = nullptr;
+		}
+	}
+
+	private: System::Void Note_Click(System::Object^ sender, System::EventArgs^ e)
+	{
+		System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(sender);
+
+		if (awaitingSecondClick && lastClickedButton == btn)
+		{
+			// Double click: edit value
+			awaitingSecondClick = false;
+			clickTimer->Stop();
+			lastClickedButton = nullptr;
+			ShowValueTextBox(btn);
+		}
+		else
+		{
+			// First click: start timer and wait for possible double-click
+			awaitingSecondClick = true;
+			lastClickedButton = btn;
+			clickTimer->Stop();
+			clickTimer->Start();
+		}
+	}
+
+	private: System::Void ClickTimer_Tick(System::Object^ sender, System::EventArgs^ e)
+	{
+		clickTimer->Stop();
+		if (awaitingSecondClick && lastClickedButton != nullptr)
+		{
+			// Timer expired, treat as single double-click (rename)
+			ShowRenameTextBox(lastClickedButton);
+		}
+		awaitingSecondClick = false;
+		lastClickedButton = nullptr;
+	}
+
+	private: void ShowRenameTextBox(System::Windows::Forms::Button^ btn)
+	{
+		if (renameTextBox == nullptr)
+		{
+			renameTextBox = gcnew System::Windows::Forms::TextBox();
+			renameTextBox->BorderStyle = System::Windows::Forms::BorderStyle::FixedSingle;
+			renameTextBox->Font = btn->Font;
+			renameTextBox->Leave += gcnew System::EventHandler(this, &InnerWindow::RenameTextBox_Leave);
+			renameTextBox->KeyDown += gcnew System::Windows::Forms::KeyEventHandler(this, &InnerWindow::RenameTextBox_KeyDown);
+			this->canvas->Controls->Add(renameTextBox);
+		}
+		renameTextBox->Location = btn->Location;
+		renameTextBox->Size = btn->Size;
+		renameTextBox->Text = btn->Text;
+		renameTextBox->Tag = btn;
+		renameTextBox->Visible = true;
+		renameTextBox->BringToFront();
+		renameTextBox->Focus();
+		renameTextBox->SelectAll();
+	}
+
+private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
+{
+	if (valueTextBox == nullptr)
+	{
+		valueTextBox = gcnew System::Windows::Forms::TextBox();
+		valueTextBox->BorderStyle = System::Windows::Forms::BorderStyle::FixedSingle;
+		valueTextBox->Font = btn->Font;
+		valueTextBox->Leave += gcnew System::EventHandler(this, &InnerWindow::ValueTextBox_Leave);
+		valueTextBox->KeyDown += gcnew System::Windows::Forms::KeyEventHandler(this, &InnerWindow::ValueTextBox_KeyDown);
+		this->canvas->Controls->Add(valueTextBox);
+	}
+	valueTextBox->Location = System::Drawing::Point(btn->Location.X, btn->Location.Y + btn->Height);
+	valueTextBox->Size = btn->Size;
+	valueTextBox->Text = noteValues[btn];
+	valueTextBox->Tag = btn;
+	valueTextBox->Visible = true;
+	valueTextBox->BringToFront();
+	valueTextBox->Focus();
+	valueTextBox->SelectAll();
+}
+
+	private: System::Void RenameTextBox_Leave(System::Object^ sender, System::EventArgs^ e)
+	{
+		if (renameTextBox->Tag != nullptr)
+		{
+			System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(renameTextBox->Tag);
+			btn->Text = renameTextBox->Text;
+		}
+		renameTextBox->Visible = false;
+		renameTextBox->Tag = nullptr;
+	}
+
+	private: System::Void RenameTextBox_KeyDown(System::Object^ sender, System::Windows::Forms::KeyEventArgs^ e)
+	{
+		if (e->KeyCode == System::Windows::Forms::Keys::Enter)
+		{
+			RenameTextBox_Leave(sender, e);
+			e->SuppressKeyPress = true;
+		}
+		else if (e->KeyCode == System::Windows::Forms::Keys::Escape)
+		{
+			renameTextBox->Visible = false;
+			renameTextBox->Tag = nullptr;
+			e->SuppressKeyPress = true;
+		}
+	}
+
+	private: System::Void ValueTextBox_Leave(System::Object^ sender, System::EventArgs^ e)
+	{
+		if (valueTextBox->Tag != nullptr)
+		{
+			System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(valueTextBox->Tag);
+			noteValues[btn] = valueTextBox->Text;
+		}
+		valueTextBox->Visible = false;
+		valueTextBox->Tag = nullptr;
+	}
+
+	private: System::Void ValueTextBox_KeyDown(System::Object^ sender, System::Windows::Forms::KeyEventArgs^ e)
+	{
+		if (e->KeyCode == System::Windows::Forms::Keys::Enter)
+		{
+			ValueTextBox_Leave(sender, e);
+			e->SuppressKeyPress = true;
+		}
+		else if (e->KeyCode == System::Windows::Forms::Keys::Escape)
+		{
+			valueTextBox->Visible = false;
+			valueTextBox->Tag = nullptr;
+			e->SuppressKeyPress = true;
+		}
+	}
 
 
 
@@ -351,7 +571,35 @@ namespace VisualNTSystem {
 
 
 
+	//******************************************SAVE FUNCTION*******************************
+	private: System::Void SaveButton_Click(System::Object^ sender, System::EventArgs^ e)
+	{
+		int scrollX = -this->canvas->AutoScrollPosition.X;
+		int scrollY = -this->canvas->AutoScrollPosition.Y;
+		System::String^ canvasName = this->Text;
 
+		System::String^ classFile = canvasName + ".txt";
+		System::IO::StreamWriter^ writer = gcnew System::IO::StreamWriter(classFile);
+
+		writer->WriteLine(scrollX);
+		writer->WriteLine(scrollY);
+		writer->WriteLine(zoomScale);
+		writer->WriteLine(canvasName);
+
+		for each (System::Windows::Forms::Button ^ btn in noteButtons)
+		{
+			writer->WriteLine(btn->Text);
+			writer->WriteLine("{");
+			writer->WriteLine("x=" + btn->Location.X.ToString());
+			writer->WriteLine("y=" + btn->Location.Y.ToString());
+			writer->WriteLine("value=" + noteValues[btn]);
+			writer->WriteLine("}");
+		}
+		writer->WriteLine("end");
+		writer->Close();
+
+		MessageBox::Show("Inner window saved!", "Save", MessageBoxButtons::OK, MessageBoxIcon::Information);
+	}
 
 
 
