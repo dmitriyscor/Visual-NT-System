@@ -438,11 +438,72 @@ namespace VisualNTSystem
 		// Get the current scroll position (user coordinates)
 		int scrollX = -this->canvas->AutoScrollPosition.X;
 		int scrollY = -this->canvas->AutoScrollPosition.Y;
-
-		// Get the canvas name
 		System::String^ canvasName = this->CanvasName->Text;
 
-		// Open the save file
+		// --- Step 1: Read and preserve all class inner content ---
+		auto classInnerContent = gcnew System::Collections::Generic::Dictionary<System::String^, System::String^>();
+		auto classHeaders = gcnew System::Collections::Generic::Dictionary<System::String^, System::String^>();
+
+		if (System::IO::File::Exists("canvas_save.txt"))
+		{
+			array<System::String^>^ lines = System::IO::File::ReadAllLines("canvas_save.txt");
+			System::String^ currentClass = nullptr;
+			System::String^ currentHeader = nullptr;
+			System::Text::StringBuilder^ innerBuilder = nullptr;
+			bool inBraces = false;
+
+			for each (System::String ^ line in lines)
+			{
+				if (line->StartsWith("[") && !inBraces)
+				{
+					// Save previous class content if any
+					if (currentClass != nullptr && innerBuilder != nullptr)
+					{
+						classInnerContent[currentClass] = innerBuilder->ToString();
+						classHeaders[currentClass] = currentHeader;
+					}
+					// Start new class
+					System::String^ header = line->Trim('[', ']');
+					array<System::String^>^ parts = header->Split(',');
+					if (parts->Length > 0)
+					{
+						currentClass = parts[0]->Trim();
+						currentHeader = line;
+					}
+					else
+					{
+						currentClass = nullptr;
+						currentHeader = nullptr;
+					}
+					innerBuilder = nullptr;
+					continue;
+				}
+				if (line->Trim()->Equals("{") && currentClass != nullptr)
+				{
+					inBraces = true;
+					innerBuilder = gcnew System::Text::StringBuilder();
+					continue;
+				}
+				if (inBraces && line->Trim()->Equals("}"))
+				{
+					inBraces = false;
+					// Will be saved at next class or at end
+					continue;
+				}
+				if (inBraces && innerBuilder != nullptr)
+				{
+					innerBuilder->AppendLine(line);
+				}
+			}
+			// Save last class if any
+			if (currentClass != nullptr && innerBuilder != nullptr)
+			{
+				classInnerContent[currentClass] = innerBuilder->ToString();
+				classHeaders[currentClass] = currentHeader;
+			}
+		}
+
+		// --- Step 2: Write new file ---
 		System::IO::StreamWriter^ writer = gcnew System::IO::StreamWriter("canvas_save.txt");
 
 		// Write user coordinates
@@ -457,10 +518,15 @@ namespace VisualNTSystem
 		writer->WriteLine("Classes:");
 		for each (System::Windows::Forms::Button ^ btn in classButtons)
 		{
-			// Write class name and position
-			writer->WriteLine("[" + btn->Text + ", " + btn->Location.X.ToString() + ", " + btn->Location.Y.ToString() + "]");
+			System::String^ className = btn->Text;
+			// Always write updated header (with new position)
+			writer->WriteLine("[" + className + ", " + btn->Location.X.ToString() + ", " + btn->Location.Y.ToString() + "]");
 			writer->WriteLine("{");
-			
+			if (classInnerContent->ContainsKey(className))
+			{
+				writer->Write(classInnerContent[className]); // Preserved notes/inner content
+			}
+			// else: new class, leave empty
 			writer->WriteLine("}");
 		}
 
@@ -470,6 +536,8 @@ namespace VisualNTSystem
 
 		MessageBox::Show("Canvas state saved!", "Save", MessageBoxButtons::OK, MessageBoxIcon::Information);
 	}
+
+
 
 
 	private: System::Void SaveAndExit(System::Object^ sender, System::EventArgs^ e)

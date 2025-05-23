@@ -666,6 +666,32 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 		bool inBraces = false;
 		bool classFound = false;
 
+
+		//to keep the class position on the main canvas
+		int classX = scrollX;
+		int classY = scrollY;
+		for (int i = 0; i < lines->Length; ++i)
+		{
+			System::String^ line = lines[i];
+			if (line->StartsWith("["))
+			{
+				System::String^ header = line->Trim('[', ']');
+				array<System::String^>^ parts = header->Split(',');
+				if (parts->Length >= 3 && parts[0]->Trim()->Equals(className))
+				{
+					int parsedX, parsedY;
+					if (Int32::TryParse(parts[1]->Trim(), parsedX) && Int32::TryParse(parts[2]->Trim(), parsedY))
+					{
+						classX = parsedX;
+						classY = parsedY;
+					}
+					break;
+				}
+			}
+		}
+
+
+
 		for (int i = 0; i < lines->Length; ++i)
 		{
 			System::String^ line = lines[i];
@@ -678,7 +704,7 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 				if (parts->Length > 0 && parts[0]->Trim()->Equals(className))
 				{
 					// Write updated class header with new position
-					newLines->Add("[" + className + ", " + scrollX.ToString() + ", " + scrollY.ToString() + "]");
+					newLines->Add("[" + className + ", " + classX.ToString() + ", " + classY.ToString() + "]");
 					inTargetClass = true;
 					classFound = true;
 					continue;
