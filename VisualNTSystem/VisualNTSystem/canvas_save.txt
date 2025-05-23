@@ -1,0 +1,22 @@
+User coordinates:
+[0, 0]
+Canvas name:
+[My New Canvas]
+Classes:
+[fbwfwen, 293, 370]
+{
+}
+[Trofik, 287, 201]
+{
+[New Note, 250, 100] = 
+}
+[Class 3, 66, 376]
+{
+}
+[another class, 392, 427]
+{
+}
+[New Class, 568, 198]
+{
+}
+[end]
