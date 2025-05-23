@@ -24,6 +24,7 @@ namespace VisualNTSystem {
 		Bitmap^ canvasBackground;
 
 	private:
+		System::String^ currentClassName;
 		System::Collections::Generic::List<System::Windows::Forms::Button^>^ noteButtons;
 		System::Windows::Forms::TextBox^ renameTextBox;
 		System::Windows::Forms::TextBox^ valueTextBox;
@@ -33,7 +34,7 @@ namespace VisualNTSystem {
 		bool awaitingSecondClick = false;
 
 		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Collections::Generic::Dictionary<System::String^, System::String^>^>^ noteVariables;
-
+		System::Collections::Generic::Dictionary<System::String^, System::Windows::Forms::TextBox^>^ variableTextBoxes;
 		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>^ noteValues;
 
 
@@ -56,10 +57,13 @@ namespace VisualNTSystem {
 			//
 			//TODO: Add the constructor code here
 			//
-			
+			if (windowTitle->Contains("->"))
+				this->currentClassName = windowTitle->Substring(windowTitle->IndexOf("->") + 2);
+			else
+				this->currentClassName = windowTitle;
 
 			this->AllowDrop = true;
-
+			variableTextBoxes = gcnew System::Collections::Generic::Dictionary<System::String^, System::Windows::Forms::TextBox^>();
 
 			//move
 			this->canvas->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Canvas_MouseDown);
@@ -270,6 +274,8 @@ namespace VisualNTSystem {
 
 				this->canvas->Controls->Add(lbl);
 				this->canvas->Controls->Add(txt);
+
+				variableTextBoxes[kvp.Key] = txt;
 				i++;
 			}
 		}
@@ -278,57 +284,88 @@ namespace VisualNTSystem {
 
 	private: System::Void InnerWindow_Load(System::Object^ sender, System::EventArgs^ e)
 	{
-		// Set up the canvas (size, background, etc.)
 		this->canvas->AutoScrollMinSize = System::Drawing::Size(4096, 4096);
-
-		// Optionally load a background image
 		System::ComponentModel::ComponentResourceManager^ resources = (gcnew System::ComponentModel::ComponentResourceManager(InnerWindow::typeid));
 		this->canvasBackground = (cli::safe_cast<System::Drawing::Bitmap^>(resources->GetObject(L"canvas.BackgroundImage")));
 
+		System::String^ windowTitle = this->Text;
+		System::String^ className = windowTitle->Contains("->") ? windowTitle->Substring(windowTitle->IndexOf("->") + 2) : windowTitle;
+		System::String^ classFile = "canvas_save.txt";
 
+		if (!System::IO::File::Exists(classFile))
+			return;
 
-		// Get the class name from the window title (or pass it as a parameter)
-		System::String^ className = this->Text; // Or use a dedicated field
+		array<System::String^>^ lines = System::IO::File::ReadAllLines(classFile);
+		bool inTargetClass = false;
+		bool inBraces = false;
 
-		// Build the filename for this class's data
-		System::String^ classFile = className + ".txt";
-
-		if (System::IO::File::Exists(classFile))
+		for each (System::String ^ line in lines)
 		{
-			System::IO::StreamReader^ reader = gcnew System::IO::StreamReader(classFile);
-
-			// Example: read variable count
-			int variableCount = System::Convert::ToInt32(reader->ReadLine());
-
-			for (int i = 0; i < variableCount; ++i)
+			// Find the class header (exact match)
+			if (!inTargetClass && line->StartsWith("["))
 			{
-				System::String^ varName = reader->ReadLine();
-				System::String^ varValue = reader->ReadLine();
-
-				// TODO: Create controls to display/edit these variables
-				// For example, add a label and a textbox for each variable
-				System::Windows::Forms::Label^ lbl = gcnew System::Windows::Forms::Label();
-				lbl->Text = varName;
-				lbl->Location = System::Drawing::Point(20, 40 + i * 30);
-				lbl->AutoSize = true;
-
-				System::Windows::Forms::TextBox^ txt = gcnew System::Windows::Forms::TextBox();
-				txt->Text = varValue;
-				txt->Location = System::Drawing::Point(120, 40 + i * 30);
-				txt->Width = 200;
-
-				this->canvas->Controls->Add(lbl);
-				this->canvas->Controls->Add(txt);
+				System::String^ header = line->Trim('[', ']');
+				array<System::String^>^ parts = header->Split(',');
+				if (parts->Length > 0 && parts[0]->Trim()->Equals(className))
+				{
+					inTargetClass = true;
+					continue;
+				}
 			}
+			// Enter the braces section
+			if (inTargetClass && !inBraces && line->Trim()->Equals("{"))
+			{
+				inBraces = true;
+				continue;
+			}
+			// Exit the braces section
+			if (inTargetClass && inBraces && line->Trim()->Equals("}"))
+			{
+				break;
+			}
+			// Parse notes inside braces
+			if (inBraces)
+			{
+				int eq = line->IndexOf('=');
+				if (eq > 0)
+				{
+					System::String^ left = line->Substring(0, eq)->Trim();
+					System::String^ value = line->Substring(eq + 1)->Trim();
+					if (left->StartsWith("[") && left->EndsWith("]"))
+					{
+						System::String^ content = left->Trim('[', ']');
+						array<System::String^>^ parts = content->Split(',');
+						if (parts->Length >= 3)
+						{
+							System::String^ noteName = parts[0]->Trim();
+							int x = System::Convert::ToInt32(parts[1]->Trim());
+							int y = System::Convert::ToInt32(parts[2]->Trim());
 
-			reader->Close();
-		}
-		else
-		{
-			// No data file for this class yet; optionally show a message or leave blank
-			Console::WriteLine("No variable data found for this class.");
+							// Create note button
+							System::Windows::Forms::Button^ note = gcnew System::Windows::Forms::Button();
+							note->Text = noteName;
+							note->Size = System::Drawing::Size(120, 40);
+							note->Location = System::Drawing::Point(x, y);
+							note->BackColor = System::Drawing::Color::FromArgb(60, 120, 200);
+							note->ForeColor = System::Drawing::Color::White;
+							note->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+							note->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
+							note->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
+							note->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
+							note->Click += gcnew System::EventHandler(this, &InnerWindow::Note_Click);
+
+							this->canvas->Controls->Add(note);
+							noteButtons->Add(note);
+							noteValues[note] = value;
+						}
+					}
+				}
+			}
 		}
 	}
+
+
+
 
 
 	 //************************************** - Create Canvas - *********************************************
@@ -612,37 +649,104 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 	{
 		int scrollX = -this->canvas->AutoScrollPosition.X;
 		int scrollY = -this->canvas->AutoScrollPosition.Y;
-		System::String^ canvasName = this->Text;
+		System::String^ windowTitle = this->Text;
+		System::String^ className = this->currentClassName;
 
-		System::String^ classFile = canvasName + ".txt";
-		System::IO::StreamWriter^ writer = gcnew System::IO::StreamWriter(classFile);
-
-		writer->WriteLine(scrollX);
-		writer->WriteLine(scrollY);
-		writer->WriteLine(zoomScale);
-		writer->WriteLine(canvasName);
-
-		for each (System::Windows::Forms::Button ^ btn in noteButtons)
+		System::String^ mainFile = "canvas_save.txt";
+		if (!System::IO::File::Exists(mainFile))
 		{
-			// Write class name and position
-			writer->WriteLine("[" + btn->Text + ", " + btn->Location.X.ToString() + ", " + btn->Location.Y.ToString() + "]");
-			writer->WriteLine("{");
-			// Write all variables for this note
-			if (noteVariables->ContainsKey(btn))
-			{
-				for each (System::Collections::Generic::KeyValuePair<System::String^, System::String^> varPair in noteVariables[btn])
-				{
-					writer->WriteLine(varPair.Key + " = " + varPair.Value);
-				}
-			}
-			writer->WriteLine("}");
+			MessageBox::Show("Main save file not found!", "Error", MessageBoxButtons::OK, MessageBoxIcon::Error);
+			return;
 		}
 
-		writer->WriteLine("end");
-		writer->Close();
+		array<System::String^>^ lines = System::IO::File::ReadAllLines(mainFile);
+		System::Collections::Generic::List<System::String^>^ newLines = gcnew System::Collections::Generic::List<System::String^>();
+
+		bool inTargetClass = false;
+		bool inBraces = false;
+		bool classFound = false;
+
+		for (int i = 0; i < lines->Length; ++i)
+		{
+			System::String^ line = lines[i];
+
+			// Detect the class header (exact match)
+			if (!inTargetClass && line->StartsWith("["))
+			{
+				System::String^ header = line->Trim('[', ']');
+				array<System::String^>^ parts = header->Split(',');
+				if (parts->Length > 0 && parts[0]->Trim()->Equals(className))
+				{
+					// Write updated class header with new position
+					newLines->Add("[" + className + ", " + scrollX.ToString() + ", " + scrollY.ToString() + "]");
+					inTargetClass = true;
+					classFound = true;
+					continue;
+				}
+			}
+
+			// If inside the target class, look for opening brace
+			if (inTargetClass && !inBraces && line->Trim()->Equals("{"))
+			{
+				newLines->Add("{");
+				inBraces = true;
+				// Write all notes for this class
+				for each (System::Windows::Forms::Button ^ note in noteButtons)
+				{
+					System::String^ noteName = note->Text;
+					int x = note->Location.X;
+					int y = note->Location.Y;
+					System::String^ value = noteValues->ContainsKey(note) ? noteValues[note] : "";
+					newLines->Add("[" + noteName + ", " + x.ToString() + ", " + y.ToString() + "] = " + value);
+				}
+				// Skip all lines until closing brace
+				while (i + 1 < lines->Length && !lines[i + 1]->Trim()->Equals("}"))
+					++i;
+				continue;
+			}
+
+			// If we just finished the class section, add the closing brace and continue
+			if (inTargetClass && inBraces && line->Trim()->Equals("}"))
+			{
+				newLines->Add("}");
+				inTargetClass = false;
+				inBraces = false;
+				continue;
+			}
+
+			// For all other lines, just copy them
+			if (!inTargetClass)
+				newLines->Add(line);
+		}
+
+		// If class section was not found, add it before [end]
+		if (!classFound)
+		{
+			int endIdx = newLines->IndexOf("[end]");
+			if (endIdx == -1) endIdx = newLines->Count;
+			newLines->Insert(endIdx++, "[" + className + ", " + scrollX.ToString() + ", " + scrollY.ToString() + "]");
+			newLines->Insert(endIdx++, "{");
+			for each (System::Windows::Forms::Button ^ note in noteButtons)
+			{
+				System::String^ noteName = note->Text;
+				int x = note->Location.X;
+				int y = note->Location.Y;
+				System::String^ value = noteValues->ContainsKey(note) ? noteValues[note] : "";
+				newLines->Insert(endIdx++, "[" + noteName + ", " + x.ToString() + ", " + y.ToString() + "] = " + value);
+			}
+			newLines->Insert(endIdx, "}");
+		}
+
+		System::IO::File::WriteAllLines(mainFile, newLines);
 
 		MessageBox::Show("Inner window saved!", "Save", MessageBoxButtons::OK, MessageBoxIcon::Information);
 	}
+
+
+
+
+
+
 
 
 
