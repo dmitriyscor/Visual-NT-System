@@ -40,6 +40,17 @@ namespace VisualNTSystem
 		literal int WIDTH = 960;
 		literal int HEIGHT = 640;
 
+
+		ref struct ClassInfo 
+		{
+			System::String^ name;
+			int x;
+			int y;
+			System::Collections::Generic::Dictionary<System::String^, System::String^>^ variables;
+		};
+
+
+
 	private: float zoomScale = 1.0f;
 	private: Bitmap^ originalImage; //for scrolling the canvas
 
@@ -64,7 +75,7 @@ namespace VisualNTSystem
 	bool awaitingSecondClick = false;
 	System::Windows::Forms::Button^ lastClickedButton = nullptr;
 
-
+	System::Collections::Generic::List<ClassInfo^>^ loadedClasses;
 	
 
 	public:
@@ -83,6 +94,7 @@ namespace VisualNTSystem
 			this->AllowDrop = true;
 			classButtons = gcnew System::Collections::Generic::List<System::Windows::Forms::Button^>();
 
+			loadedClasses = gcnew System::Collections::Generic::List<ClassInfo^>();
 			
 			//move
 			this->canvas->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::Canvas_MouseDown);
@@ -324,69 +336,97 @@ namespace VisualNTSystem
 	//***********************************************************************************
 	//******************************** - Load Function - **************************************  #1
 	//*********************************************************************************** 
-    private: System::Void VNTS_Canvas_Load(System::Object^ sender, System::EventArgs^ e)
-    {
-        // Create a ComponentResourceManager to access resources
-        System::ComponentModel::ComponentResourceManager^ resources = gcnew System::ComponentModel::ComponentResourceManager(VNTS_Canvas::typeid);
+	private: System::Void VNTS_Canvas_Load(System::Object^ sender, System::EventArgs^ e)
+	{
+		System::ComponentModel::ComponentResourceManager^ resources = gcnew System::ComponentModel::ComponentResourceManager(VNTS_Canvas::typeid);
+		this->canvas->AutoScrollMinSize = System::Drawing::Size(4096, 4096);
+		this->canvasBackground = (cli::safe_cast<System::Drawing::Bitmap^>(resources->GetObject(L"canvas.BackgroundImage")));
 
-        // Set the virtual canvas size
-        this->canvas->AutoScrollMinSize = System::Drawing::Size(4096, 4096);
-        this->canvasBackground = (cli::safe_cast<System::Drawing::Bitmap^>(resources->GetObject(L"canvas.BackgroundImage")));
+		if (System::IO::File::Exists("canvas_save.txt"))
+		{
+			System::IO::StreamReader^ reader = gcnew System::IO::StreamReader("canvas_save.txt");
+			System::String^ line;
+			int scrollX = 0, scrollY = 0;
+			System::String^ canvasName = "";
+			loadedClasses->Clear();
 
-        if (System::IO::File::Exists("canvas_save.txt"))
-        {
-            System::IO::StreamReader^ reader = gcnew System::IO::StreamReader("canvas_save.txt");
-            int scrollX = System::Convert::ToInt32(reader->ReadLine());
-            int scrollY = System::Convert::ToInt32(reader->ReadLine());
-            zoomScale = System::Convert::ToSingle(reader->ReadLine());
-            std::string canvasName = msclr::interop::marshal_as<std::string>(reader->ReadLine());
-            this->CanvasName->Text = gcnew System::String(canvasName.c_str());
-
-			// Remove old buttons if any
-			for each(System::Windows::Forms::Button ^ btn in classButtons)
-				this->canvas->Controls->Remove(btn);
-			classButtons->Clear();
-
-			// Read buttons
-			while (!reader->EndOfStream)
+			while ((line = reader->ReadLine()) != nullptr)
 			{
-				System::String^ name = reader->ReadLine();
-				if (name == "END_BUTTONS") break;
-				int x = System::Convert::ToInt32(reader->ReadLine());
-				int y = System::Convert::ToInt32(reader->ReadLine());
+				if (line->StartsWith("User coordinates:"))
+				{
+					line = reader->ReadLine();
+					// [x, y]
+					line = line->Trim('[', ']');
+					array<System::String^>^ coords = line->Split(',');
+					scrollX = System::Convert::ToInt32(coords[0]->Trim());
+					scrollY = System::Convert::ToInt32(coords[1]->Trim());
+				}
+				else if (line->StartsWith("Canvas name:"))
+				{
+					line = reader->ReadLine();
+					canvasName = line->Trim('[', ']');
+					this->CanvasName->Text = canvasName;
+				}
+				else if (line->StartsWith("Classes:"))
+				{
+					while ((line = reader->ReadLine()) != nullptr && !line->StartsWith("[end]"))
+					{
+						if (line->StartsWith("["))
+						{
+							// [Class name, x, y]
+							line = line->Trim('[', ']');
+							array<System::String^>^ parts = line->Split(',');
+							ClassInfo^ info = gcnew ClassInfo();
+							info->name = parts[0]->Trim();
+							info->x = System::Convert::ToInt32(parts[1]->Trim());
+							info->y = System::Convert::ToInt32(parts[2]->Trim());
+							info->variables = gcnew System::Collections::Generic::Dictionary<System::String^, System::String^>();
 
-				System::Windows::Forms::Button^ btn = gcnew System::Windows::Forms::Button();
-				btn->Text = name;
-				btn->Size = System::Drawing::Size(120, 40);
-				btn->Location = System::Drawing::Point(x, y);
-				btn->BackColor = System::Drawing::Color::FromArgb(60, 120, 200);
-				btn->ForeColor = System::Drawing::Color::White;
-				btn->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
-				btn->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseDown);
-				btn->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseMove);
-				btn->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseUp);
+							// Read variables block
+							line = reader->ReadLine(); // should be "{"
+							while ((line = reader->ReadLine()) != nullptr && !line->StartsWith("}"))
+							{
+								int eq = line->IndexOf('=');
+								if (eq > 0)
+								{
+									System::String^ var = line->Substring(0, eq)->Trim();
+									System::String^ val = line->Substring(eq + 1)->Trim();
+									info->variables[var] = val;
+								}
+							}
+							loadedClasses->Add(info);
 
-				btn->Click += gcnew System::EventHandler(this, &VNTS_Canvas::ClassButton_Click);
+							// Create button for this class
+							System::Windows::Forms::Button^ btn = gcnew System::Windows::Forms::Button();
+							btn->Text = info->name;
+							btn->Size = System::Drawing::Size(120, 40);
+							btn->Location = System::Drawing::Point(info->x, info->y);
+							btn->BackColor = System::Drawing::Color::FromArgb(60, 120, 200);
+							btn->ForeColor = System::Drawing::Color::White;
+							btn->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+							btn->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseDown);
+							btn->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseMove);
+							btn->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &VNTS_Canvas::MoveableButton_MouseUp);
+							btn->Click += gcnew System::EventHandler(this, &VNTS_Canvas::ClassButton_Click);
 
-				this->canvas->Controls->Add(btn);
-				classButtons->Add(btn);
+							this->canvas->Controls->Add(btn);
+							classButtons->Add(btn);
+						}
+					}
+				}
 			}
+			reader->Close();
+			this->canvas->AutoScrollPosition = System::Drawing::Point(scrollX, scrollY);
+		}
+		else
+		{
+			int centerX = (4096 - this->canvas->ClientSize.Width) / 2;
+			int centerY = (4096 - this->canvas->ClientSize.Height) / 2;
+			this->canvas->AutoScrollPosition = System::Drawing::Point(centerX, centerY);
+			Console::WriteLine("Save file not found. Centering canvas.");
+		}
+	}
 
-
-            reader->Close();
-
-            // Apply the saved scroll position and zoom level
-            this->canvas->AutoScrollPosition = System::Drawing::Point(scrollX, scrollY);
-        }
-        else
-        {
-            // Center the view on the canvas
-            int centerX = (4096 - this->canvas->ClientSize.Width) / 2;
-            int centerY = (4096 - this->canvas->ClientSize.Height) / 2;
-            this->canvas->AutoScrollPosition = System::Drawing::Point(centerX, centerY);
-            Console::WriteLine("Save file not found. Centering canvas.");
-        }
-    }
 
 	//*************************************************************************************  #1
 	 
@@ -395,33 +435,42 @@ namespace VisualNTSystem
 	//*********************************************************************************** 
 	private: System::Void SaveButton_Click(System::Object^ sender, System::EventArgs^ e)
 	{
-		// Get the current scroll position
+		// Get the current scroll position (user coordinates)
 		int scrollX = -this->canvas->AutoScrollPosition.X;
 		int scrollY = -this->canvas->AutoScrollPosition.Y;
 
-		// Convert System::String^ to std::string
-		std::string canvasName = msclr::interop::marshal_as<std::string>(this->CanvasName->Text);
+		// Get the canvas name
+		System::String^ canvasName = this->CanvasName->Text;
 
-		// Save the scroll position, zoom level, and canvas name to a file
+		// Open the save file
 		System::IO::StreamWriter^ writer = gcnew System::IO::StreamWriter("canvas_save.txt");
-		writer->WriteLine(scrollX);
-		writer->WriteLine(scrollY);
-		writer->WriteLine(zoomScale);
-		writer->WriteLine(gcnew System::String(canvasName.c_str())); // Save the canvas name
 
-		// Save all class buttons
+		// Write user coordinates
+		writer->WriteLine("User coordinates:");
+		writer->WriteLine("[" + scrollX.ToString() + ", " + scrollY.ToString() + "]");
+
+		// Write canvas name
+		writer->WriteLine("Canvas name:");
+		writer->WriteLine("[" + canvasName + "]");
+
+		// Write classes
+		writer->WriteLine("Classes:");
 		for each (System::Windows::Forms::Button ^ btn in classButtons)
 		{
-			writer->WriteLine(btn->Text);
-			writer->WriteLine(btn->Location.X);
-			writer->WriteLine(btn->Location.Y);
+			// Write class name and position
+			writer->WriteLine("[" + btn->Text + ", " + btn->Location.X.ToString() + ", " + btn->Location.Y.ToString() + "]");
+			writer->WriteLine("{");
+			
+			writer->WriteLine("}");
 		}
-		writer->WriteLine("END_BUTTONS"); // Mark end of buttons
 
+		// End marker
+		writer->WriteLine("[end]");
 		writer->Close();
 
 		MessageBox::Show("Canvas state saved!", "Save", MessageBoxButtons::OK, MessageBoxIcon::Information);
 	}
+
 
 	private: System::Void SaveAndExit(System::Object^ sender, System::EventArgs^ e)
 	{
@@ -606,21 +655,33 @@ namespace VisualNTSystem
 
 		if (awaitingSecondClick && lastClickedButton == btn)
 		{
-			// Detected a double-click
 			awaitingSecondClick = false;
 			clickTimer->Stop();
 			lastClickedButton = nullptr;
 
-			// Open the window
 			System::String^ className = btn->Text;
 			System::String^ canvasName = this->CanvasName->Text;
 			System::String^ windowTitle = canvasName + "->" + className;
-			InnerWindow^ innerWin = gcnew InnerWindow(windowTitle);
+
+			// Find the class info
+			ClassInfo^ info = nullptr;
+			for each (ClassInfo ^ ci in loadedClasses)
+			{
+				if (ci->name == className)
+				{
+					info = ci;
+					break;
+				}
+			}
+			InnerWindow^ innerWin = nullptr;
+			if (info != nullptr)
+				innerWin = gcnew InnerWindow(windowTitle, info->variables);
+			else
+				innerWin = gcnew InnerWindow(windowTitle, nullptr);
 			innerWin->Show();
 		}
 		else
 		{
-			// First click: start timer and wait for possible double-click
 			awaitingSecondClick = true;
 			lastClickedButton = btn;
 			clickTimer->Stop();

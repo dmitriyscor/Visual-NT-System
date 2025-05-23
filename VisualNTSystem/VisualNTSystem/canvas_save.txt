@@ -1,20 +1,21 @@
-0
-0
-1
-My New Canvas
-fbwfwen
-293
-370
-Trofik
-481
-314
-Class 3
-66
-376
-flwef
-392
-427
-New Class
-568
-198
-END_BUTTONS
+User coordinates:
+[0, 0]
+Canvas name:
+[My New Canvas]
+Classes:
+[fbwfwen, 293, 370]
+{
+}
+[Trofik, 342, 219]
+{
+}
+[Class 3, 66, 376]
+{
+}
+[flwef, 392, 427]
+{
+}
+[New Class, 568, 198]
+{
+}
+[end]

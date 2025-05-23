@@ -31,11 +31,24 @@ namespace VisualNTSystem {
 		System::Windows::Forms::Timer^ clickTimer;
 		int clickDelayMs = 200;
 		bool awaitingSecondClick = false;
+
+		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Collections::Generic::Dictionary<System::String^, System::String^>^>^ noteVariables;
+
 		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>^ noteValues;
 
 
 	public:
 		InnerWindow() : InnerWindow("InnerWindow") {}
+
+	
+		InnerWindow(System::String^ windowTitle, System::Collections::Generic::Dictionary<System::String^, System::String^>^ variables)
+			: InnerWindow(windowTitle) // Call the existing constructor
+		{
+			if (variables != nullptr)
+			{
+				DisplayVariables(variables);
+			}
+		}
 
 		InnerWindow(System::String^ windowTitle)
 		{
@@ -55,7 +68,7 @@ namespace VisualNTSystem {
 
 			this->canvas->Paint += gcnew PaintEventHandler(this, &InnerWindow::Canvas_Paint);
 
-
+			noteVariables = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Collections::Generic::Dictionary<System::String^, System::String^>^>();
 			noteButtons = gcnew System::Collections::Generic::List<System::Windows::Forms::Button^>();
 			noteValues = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>();
 			clickTimer = gcnew System::Windows::Forms::Timer();
@@ -239,6 +252,29 @@ namespace VisualNTSystem {
 		}
 #pragma endregion
 	
+	private:
+		void DisplayVariables(System::Collections::Generic::Dictionary<System::String^, System::String^>^ variables)
+		{
+			int i = 0;
+			for each (auto kvp in variables)
+			{
+				System::Windows::Forms::Label^ lbl = gcnew System::Windows::Forms::Label();
+				lbl->Text = kvp.Key;
+				lbl->Location = System::Drawing::Point(20, 40 + i * 30);
+				lbl->AutoSize = true;
+
+				System::Windows::Forms::TextBox^ txt = gcnew System::Windows::Forms::TextBox();
+				txt->Text = kvp.Value;
+				txt->Location = System::Drawing::Point(120, 40 + i * 30);
+				txt->Width = 200;
+
+				this->canvas->Controls->Add(lbl);
+				this->canvas->Controls->Add(txt);
+				i++;
+			}
+		}
+
+
 
 	private: System::Void InnerWindow_Load(System::Object^ sender, System::EventArgs^ e)
 	{
@@ -588,13 +624,20 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 
 		for each (System::Windows::Forms::Button ^ btn in noteButtons)
 		{
-			writer->WriteLine(btn->Text);
+			// Write class name and position
+			writer->WriteLine("[" + btn->Text + ", " + btn->Location.X.ToString() + ", " + btn->Location.Y.ToString() + "]");
 			writer->WriteLine("{");
-			writer->WriteLine("x=" + btn->Location.X.ToString());
-			writer->WriteLine("y=" + btn->Location.Y.ToString());
-			writer->WriteLine("value=" + noteValues[btn]);
+			// Write all variables for this note
+			if (noteVariables->ContainsKey(btn))
+			{
+				for each (System::Collections::Generic::KeyValuePair<System::String^, System::String^> varPair in noteVariables[btn])
+				{
+					writer->WriteLine(varPair.Key + " = " + varPair.Value);
+				}
+			}
 			writer->WriteLine("}");
 		}
+
 		writer->WriteLine("end");
 		writer->Close();
 

@@ -2,10 +2,7 @@
 0
 1
 InnerWindow
-My note
+[My new note, 250, 100]
 {
-x=250
-y=100
-value=test
 }
 end
