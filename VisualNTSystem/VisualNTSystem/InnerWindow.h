@@ -259,26 +259,41 @@ namespace VisualNTSystem {
 	private:
 		void DisplayVariables(System::Collections::Generic::Dictionary<System::String^, System::String^>^ variables)
 		{
-			int i = 0;
 			for each (auto kvp in variables)
 			{
-				System::Windows::Forms::Label^ lbl = gcnew System::Windows::Forms::Label();
-				lbl->Text = kvp.Key;
-				lbl->Location = System::Drawing::Point(20, 40 + i * 30);
-				lbl->AutoSize = true;
+				// Parse key: expected format "[Name, x, y]"
+				System::String^ key = kvp.Key->Trim();
+				if (!key->StartsWith("[") || !key->EndsWith("]"))
+					continue;
 
-				System::Windows::Forms::TextBox^ txt = gcnew System::Windows::Forms::TextBox();
-				txt->Text = kvp.Value;
-				txt->Location = System::Drawing::Point(120, 40 + i * 30);
-				txt->Width = 200;
+				System::String^ content = key->Trim('[', ']');
+				array<System::String^>^ parts = content->Split(',');
+				if (parts->Length < 3)
+					continue;
 
-				this->canvas->Controls->Add(lbl);
-				this->canvas->Controls->Add(txt);
+				System::String^ name = parts[0]->Trim();
+				int x = System::Convert::ToInt32(parts[1]->Trim());
+				int y = System::Convert::ToInt32(parts[2]->Trim());
+				System::String^ noteValue = kvp.Value;
 
-				variableTextBoxes[kvp.Key] = txt;
-				i++;
+				System::Windows::Forms::Button^ btn = gcnew System::Windows::Forms::Button();
+				btn->Text = name;
+				btn->Size = System::Drawing::Size(120, 40);
+				btn->Location = System::Drawing::Point(x, y);
+				btn->BackColor = System::Drawing::Color::FromArgb(60, 120, 200);
+				btn->ForeColor = System::Drawing::Color::White;
+				btn->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+				btn->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
+				btn->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
+				btn->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
+				btn->Click += gcnew System::EventHandler(this, &InnerWindow::Note_Click);
+
+				this->canvas->Controls->Add(btn);
+				noteButtons->Add(btn);
+				noteValues[btn] = noteValue;
 			}
 		}
+
 
 
 
@@ -302,67 +317,63 @@ namespace VisualNTSystem {
 		for each (System::String ^ line in lines)
 		{
 			// Find the class header (exact match)
-			if (!inTargetClass && line->StartsWith("["))
-			{
+			if (!inTargetClass && line->StartsWith("[")) {
 				System::String^ header = line->Trim('[', ']');
 				array<System::String^>^ parts = header->Split(',');
-				if (parts->Length > 0 && parts[0]->Trim()->Equals(className))
-				{
+				if (parts->Length > 0 && parts[0]->Trim()->Equals(className)) {
 					inTargetClass = true;
 					continue;
 				}
 			}
 			// Enter the braces section
-			if (inTargetClass && !inBraces && line->Trim()->Equals("{"))
-			{
+			if (inTargetClass && !inBraces && line->Trim()->Equals("{")) {
 				inBraces = true;
 				continue;
 			}
 			// Exit the braces section
-			if (inTargetClass && inBraces && line->Trim()->Equals("}"))
-			{
+			if (inTargetClass && inBraces && line->Trim()->Equals("}")) {
 				break;
 			}
-			// Parse notes inside braces
-			if (inBraces)
-			{
+			// Parse variables/notes inside braces
+			if (inBraces) {
 				int eq = line->IndexOf('=');
-				if (eq > 0)
-				{
+				if (eq > 0) {
 					System::String^ left = line->Substring(0, eq)->Trim();
 					System::String^ value = line->Substring(eq + 1)->Trim();
-					if (left->StartsWith("[") && left->EndsWith("]"))
-					{
+					if (left->StartsWith("[") && left->EndsWith("]")) {
 						System::String^ content = left->Trim('[', ']');
 						array<System::String^>^ parts = content->Split(',');
-						if (parts->Length >= 3)
-						{
-							System::String^ noteName = parts[0]->Trim();
+						if (parts->Length >= 3) {
+							System::String^ varName = parts[0]->Trim();
 							int x = System::Convert::ToInt32(parts[1]->Trim());
 							int y = System::Convert::ToInt32(parts[2]->Trim());
 
-							// Create note button
-							System::Windows::Forms::Button^ note = gcnew System::Windows::Forms::Button();
-							note->Text = noteName;
-							note->Size = System::Drawing::Size(120, 40);
-							note->Location = System::Drawing::Point(x, y);
-							note->BackColor = System::Drawing::Color::FromArgb(60, 120, 200);
-							note->ForeColor = System::Drawing::Color::White;
-							note->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
-							note->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
-							note->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
-							note->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
-							note->Click += gcnew System::EventHandler(this, &InnerWindow::Note_Click);
+							// Create button at the correct position
+							System::Windows::Forms::Button^ btn = gcnew System::Windows::Forms::Button();
+							btn->Text = varName;
+							btn->Size = System::Drawing::Size(120, 40);
+							btn->Location = System::Drawing::Point(x, y);
+							btn->BackColor = System::Drawing::Color::FromArgb(60, 120, 200);
+							btn->ForeColor = System::Drawing::Color::White;
+							btn->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+							btn->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
+							btn->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
+							btn->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
+							btn->Click += gcnew System::EventHandler(this, &InnerWindow::Note_Click);
 
-							this->canvas->Controls->Add(note);
-							noteButtons->Add(note);
-							noteValues[note] = value;
+							this->canvas->Controls->Add(btn);
+							noteButtons->Add(btn);
+							noteValues[btn] = value;
 						}
 					}
 				}
 			}
+
+
 		}
 	}
+
+
 
 
 
