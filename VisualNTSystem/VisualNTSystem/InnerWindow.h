@@ -35,6 +35,8 @@ namespace VisualNTSystem {
 
 		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Collections::Generic::Dictionary<System::String^, System::String^>^>^ noteVariables;
 		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Windows::Forms::TextBox^>^ noteValueTextBoxes;
+		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Windows::Forms::Button^>^ noteSubmitButtons;
+		
 		System::Collections::Generic::Dictionary<System::String^, System::Windows::Forms::TextBox^>^ variableTextBoxes;
 		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>^ noteValues;
 
@@ -75,6 +77,8 @@ namespace VisualNTSystem {
 
 			noteVariables = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Collections::Generic::Dictionary<System::String^, System::String^>^>();
 			noteValueTextBoxes = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Windows::Forms::TextBox^>();
+			noteSubmitButtons = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Windows::Forms::Button^>();
+
 			noteButtons = gcnew System::Collections::Generic::List<System::Windows::Forms::Button^>();
 			noteValues = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>();
 			clickTimer = gcnew System::Windows::Forms::Timer();
@@ -318,6 +322,7 @@ namespace VisualNTSystem {
 				noteButtons->Add(btn);
 				noteValues[btn] = noteValue;
 				noteValueTextBoxes[btn] = txt;
+				noteSubmitButtons[btn] = submitBtn;
 			}
 		}
 
@@ -530,16 +535,69 @@ namespace VisualNTSystem {
 		}
 	}
 
-	private: System::Void Note_MouseMove(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
-	{
-		if (isNoteDragging && draggingNote != nullptr)
+	private: 
+		System::Void Note_MouseMove(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
 		{
-			System::Drawing::Point newLocation = draggingNote->Location;
-			newLocation.X += e->X - noteDragOffset.X;
-			newLocation.Y += e->Y - noteDragOffset.Y;
-			draggingNote->Location = newLocation;
+			if (isNoteDragging && draggingNote != nullptr)
+			{
+				// Calculate new location for the button
+				System::Drawing::Point newLocation = draggingNote->Location;
+				newLocation.X += e->X - noteDragOffset.X;
+				newLocation.Y += e->Y - noteDragOffset.Y;
+
+				// Prepare rectangles for the button, textbox, and submit button
+				System::Drawing::Rectangle newBtnRect(newLocation, draggingNote->Size);
+				System::Drawing::Rectangle newTxtRect(newLocation.X, newLocation.Y + draggingNote->Height, 90, 60);
+				System::Drawing::Rectangle newSubmitRect(newLocation.X + 90, newLocation.Y + draggingNote->Height, 50, 60);
+
+				// Check for overlap with other notes and their controls
+				bool overlap = false;
+				for each (System::Windows::Forms::Button ^ otherBtn in noteButtons)
+				{
+					if (otherBtn == draggingNote) continue;
+					System::Drawing::Point otherLoc = otherBtn->Location;
+					System::Drawing::Rectangle otherBtnRect(otherLoc, otherBtn->Size);
+
+					// Associated controls
+					System::Drawing::Rectangle otherTxtRect(otherLoc.X, otherLoc.Y + otherBtn->Height, 90, 60);
+					System::Drawing::Rectangle otherSubmitRect(otherLoc.X + 90, otherLoc.Y + otherBtn->Height, 50, 60);
+
+					if (newBtnRect.IntersectsWith(otherBtnRect) ||
+						newBtnRect.IntersectsWith(otherTxtRect) ||
+						newBtnRect.IntersectsWith(otherSubmitRect) ||
+						newTxtRect.IntersectsWith(otherBtnRect) ||
+						newTxtRect.IntersectsWith(otherTxtRect) ||
+						newTxtRect.IntersectsWith(otherSubmitRect) ||
+						newSubmitRect.IntersectsWith(otherBtnRect) ||
+						newSubmitRect.IntersectsWith(otherTxtRect) ||
+						newSubmitRect.IntersectsWith(otherSubmitRect))
+					{
+						overlap = true;
+						break;
+					}
+				}
+				if (overlap)
+					return; // Don't move if overlap would occur
+
+				// Move the button
+				draggingNote->Location = newLocation;
+
+				// Move the associated TextBox
+				if (noteValueTextBoxes->ContainsKey(draggingNote))
+				{
+					System::Windows::Forms::TextBox^ txt = noteValueTextBoxes[draggingNote];
+					txt->Location = System::Drawing::Point(newLocation.X, newLocation.Y + draggingNote->Height);
+				}
+
+				// Move the associated Submit button
+				if (noteSubmitButtons->ContainsKey(draggingNote))
+				{
+					System::Windows::Forms::Button^ submitBtn = noteSubmitButtons[draggingNote];
+					submitBtn->Location = System::Drawing::Point(newLocation.X + 90, newLocation.Y + draggingNote->Height);
+				}
+			}
 		}
-	}
+
 
 	private: System::Void Note_MouseUp(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
 	{

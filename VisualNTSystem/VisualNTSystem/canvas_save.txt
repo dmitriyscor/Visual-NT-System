@@ -21,7 +21,7 @@ Classes:
 }
 [Tolik, 507, 359]
 {
-[Age, 323, 60] = 21
-[College, 145, 440] = Las Positas + UCD
+[Age, 87, 198] = 21
+[College, 341, 190] = Las Positas + UC Davis
 }
 [end]
