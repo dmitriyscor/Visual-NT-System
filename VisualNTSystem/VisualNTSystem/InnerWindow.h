@@ -34,6 +34,7 @@ namespace VisualNTSystem {
 		bool awaitingSecondClick = false;
 
 		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Collections::Generic::Dictionary<System::String^, System::String^>^>^ noteVariables;
+		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Windows::Forms::TextBox^>^ noteValueTextBoxes;
 		System::Collections::Generic::Dictionary<System::String^, System::Windows::Forms::TextBox^>^ variableTextBoxes;
 		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>^ noteValues;
 
@@ -73,6 +74,7 @@ namespace VisualNTSystem {
 			this->canvas->Paint += gcnew PaintEventHandler(this, &InnerWindow::Canvas_Paint);
 
 			noteVariables = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Collections::Generic::Dictionary<System::String^, System::String^>^>();
+			noteValueTextBoxes = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Windows::Forms::TextBox^>();
 			noteButtons = gcnew System::Collections::Generic::List<System::Windows::Forms::Button^>();
 			noteValues = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>();
 			clickTimer = gcnew System::Windows::Forms::Timer();
@@ -194,6 +196,8 @@ namespace VisualNTSystem {
 			this->SaveButton->Size = System::Drawing::Size(30, 30);
 			this->SaveButton->TabIndex = 6;
 			this->SaveButton->UseVisualStyleBackColor = false;
+			this->SaveButton->Click += gcnew System::EventHandler(this, &InnerWindow::SaveButton_Click);
+
 			// 
 			// SaveAndExitButton
 			// 
@@ -212,7 +216,8 @@ namespace VisualNTSystem {
 			this->SaveAndExitButton->TabIndex = 11;
 			this->SaveAndExitButton->Text = L"Save And Go Back";
 			this->SaveAndExitButton->UseVisualStyleBackColor = false;
-			this->SaveButton->Click += gcnew System::EventHandler(this, &InnerWindow::SaveButton_Click);
+			this->SaveAndExitButton->Click += gcnew System::EventHandler(this, &InnerWindow::SaveAndExitButton_Click);
+
 
 			// 
 			// canvas
@@ -276,6 +281,7 @@ namespace VisualNTSystem {
 				int y = System::Convert::ToInt32(parts[2]->Trim());
 				System::String^ noteValue = kvp.Value;
 
+				// Create the button
 				System::Windows::Forms::Button^ btn = gcnew System::Windows::Forms::Button();
 				btn->Text = name;
 				btn->Size = System::Drawing::Size(120, 40);
@@ -286,13 +292,37 @@ namespace VisualNTSystem {
 				btn->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
 				btn->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
 				btn->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
-				btn->Click += gcnew System::EventHandler(this, &InnerWindow::Note_Click);
+
+				// Create the value TextBox under the button (always editable)
+				System::Windows::Forms::TextBox^ txt = gcnew System::Windows::Forms::TextBox();
+				txt->Text = noteValue;
+				txt->Location = System::Drawing::Point(x, y + btn->Height);
+				txt->Size = System::Drawing::Size(90, 60);
+				txt->Multiline = true;
+				txt->ReadOnly = false;
+				txt->Tag = btn;
+				txt->Font = gcnew System::Drawing::Font(L"Candara", 12.0F);
+				txt->BackColor = System::Drawing::Color::White;
+
+				// Create the Submit button
+				System::Windows::Forms::Button^ submitBtn = gcnew System::Windows::Forms::Button();
+				submitBtn->Text = L"Submit";
+				submitBtn->Size = System::Drawing::Size(50, 60);
+				submitBtn->Location = System::Drawing::Point(x + 90, y + btn->Height);
+				submitBtn->Tag = txt; // Store reference to the textbox
+				submitBtn->Click += gcnew System::EventHandler(this, &InnerWindow::SubmitValue_Click);
 
 				this->canvas->Controls->Add(btn);
+				this->canvas->Controls->Add(txt);
+				this->canvas->Controls->Add(submitBtn);
 				noteButtons->Add(btn);
 				noteValues[btn] = noteValue;
+				noteValueTextBoxes[btn] = txt;
 			}
 		}
+
+
+
 
 
 
@@ -523,24 +553,8 @@ namespace VisualNTSystem {
 
 	private: System::Void Note_Click(System::Object^ sender, System::EventArgs^ e)
 	{
-		System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(sender);
-
-		if (awaitingSecondClick && lastClickedButton == btn)
-		{
-			// Double click: edit value
-			awaitingSecondClick = false;
-			clickTimer->Stop();
-			lastClickedButton = nullptr;
-			ShowValueTextBox(btn);
-		}
-		else
-		{
-			// First click: start timer and wait for possible double-click
-			awaitingSecondClick = true;
-			lastClickedButton = btn;
-			clickTimer->Stop();
-			clickTimer->Start();
-		}
+		// No need to handle double-click for editing value anymore.
+		// You may keep this empty or use it for other features (like selection).
 	}
 
 	private: System::Void ClickTimer_Tick(System::Object^ sender, System::EventArgs^ e)
@@ -576,26 +590,18 @@ namespace VisualNTSystem {
 		renameTextBox->SelectAll();
 	}
 
-private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
-{
-	if (valueTextBox == nullptr)
+private: 
+	void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 	{
-		valueTextBox = gcnew System::Windows::Forms::TextBox();
-		valueTextBox->BorderStyle = System::Windows::Forms::BorderStyle::FixedSingle;
-		valueTextBox->Font = btn->Font;
-		valueTextBox->Leave += gcnew System::EventHandler(this, &InnerWindow::ValueTextBox_Leave);
-		valueTextBox->KeyDown += gcnew System::Windows::Forms::KeyEventHandler(this, &InnerWindow::ValueTextBox_KeyDown);
-		this->canvas->Controls->Add(valueTextBox);
+		if (!noteValueTextBoxes->ContainsKey(btn))
+			return;
+
+		System::Windows::Forms::TextBox^ txt = noteValueTextBoxes[btn];
+		txt->ReadOnly = false;
+		txt->Focus();
+		txt->SelectAll();
 	}
-	valueTextBox->Location = System::Drawing::Point(btn->Location.X, btn->Location.Y + btn->Height);
-	valueTextBox->Size = btn->Size;
-	valueTextBox->Text = noteValues[btn];
-	valueTextBox->Tag = btn;
-	valueTextBox->Visible = true;
-	valueTextBox->BringToFront();
-	valueTextBox->Focus();
-	valueTextBox->SelectAll();
-}
+
 
 	private: System::Void RenameTextBox_Leave(System::Object^ sender, System::EventArgs^ e)
 	{
@@ -625,13 +631,10 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 
 	private: System::Void ValueTextBox_Leave(System::Object^ sender, System::EventArgs^ e)
 	{
-		if (valueTextBox->Tag != nullptr)
-		{
-			System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(valueTextBox->Tag);
-			noteValues[btn] = valueTextBox->Text;
-		}
-		valueTextBox->Visible = false;
-		valueTextBox->Tag = nullptr;
+		System::Windows::Forms::TextBox^ txt = safe_cast<System::Windows::Forms::TextBox^>(sender);
+		System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(txt->Tag);
+		noteValues[btn] = txt->Text;
+		txt->ReadOnly = true;
 	}
 
 	private: System::Void ValueTextBox_KeyDown(System::Object^ sender, System::Windows::Forms::KeyEventArgs^ e)
@@ -643,10 +646,40 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 		}
 		else if (e->KeyCode == System::Windows::Forms::Keys::Escape)
 		{
-			valueTextBox->Visible = false;
-			valueTextBox->Tag = nullptr;
+			System::Windows::Forms::TextBox^ txt = safe_cast<System::Windows::Forms::TextBox^>(sender);
+			txt->ReadOnly = true;
 			e->SuppressKeyPress = true;
 		}
+	}
+
+private:
+	void SubmitFeedbackTimer_Tick(System::Object^ sender, System::EventArgs^ e)
+	{
+		System::Windows::Forms::Timer^ timer = safe_cast<System::Windows::Forms::Timer^>(sender);
+		if (timer->Tag != nullptr)
+		{
+			System::Windows::Forms::Button^ submitBtn = safe_cast<System::Windows::Forms::Button^>(timer->Tag);
+			submitBtn->BackColor = System::Drawing::SystemColors::Control;
+		}
+		timer->Stop();
+	}
+	
+
+private: 
+	System::Void SubmitValue_Click(System::Object^ sender, System::EventArgs^ e)
+	{
+		System::Windows::Forms::Button^ submitBtn = safe_cast<System::Windows::Forms::Button^>(sender);
+		System::Windows::Forms::TextBox^ txt = safe_cast<System::Windows::Forms::TextBox^>(submitBtn->Tag);
+		System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(txt->Tag);
+		noteValues[btn] = txt->Text;
+
+		// Visual feedback
+		submitBtn->BackColor = System::Drawing::Color::LightGreen;
+		System::Windows::Forms::Timer^ timer = gcnew System::Windows::Forms::Timer();
+		timer->Interval = 300;
+		timer->Tag = submitBtn; // Pass the button via Tag
+		timer->Tick += gcnew System::EventHandler(this, &InnerWindow::SubmitFeedbackTimer_Tick);
+		timer->Start();
 	}
 
 
@@ -779,7 +812,11 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 		MessageBox::Show("Inner window saved!", "Save", MessageBoxButtons::OK, MessageBoxIcon::Information);
 	}
 
-
+	private: System::Void SaveAndExitButton_Click(System::Object^ sender, System::EventArgs^ e)
+	{
+		SaveButton_Click(sender, e); // Save the current state
+		this->Close();               // Close only this window
+	}
 
 
 

@@ -19,9 +19,9 @@ Classes:
 [New Class, 568, 198]
 {
 }
-[Tolik, 397, 91]
+[Tolik, 507, 359]
 {
-[Age, 462, 212] = 20
-[College, 145, 441] = Las Positas
+[Age, 323, 60] = 21
+[College, 145, 440] = Las Positas + UCD
 }
 [end]
