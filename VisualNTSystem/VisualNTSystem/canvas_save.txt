@@ -23,7 +23,9 @@ Classes:
 [Tolik, 507, 359]
 {
 [int Age, 87, 198] = 21
-[string College, 341, 192] = Las Positas + UCD
+[string College, 257, 84] = Las Positas + UCD
 [int height, 514, 393] = 187
+[int AgeCopy, 185, 395] = 21
+[string CollegeCopy, 445, 181] = Las Positas + UCD
 }
 [end]
