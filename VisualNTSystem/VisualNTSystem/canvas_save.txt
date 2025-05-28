@@ -8,7 +8,8 @@ Classes:
 }
 [Trofik, 287, 201]
 {
-[New Note, 250, 100] = 
+[New Note, 235, 177] = 
+[New Note, 486, 128] = 
 }
 [Class 3, 66, 376]
 {
@@ -21,7 +22,8 @@ Classes:
 }
 [Tolik, 507, 359]
 {
-[Age, 87, 198] = 21
-[College, 341, 190] = Las Positas + UC Davis
+[int Age, 87, 198] = 21
+[string College, 341, 192] = Las Positas + UCD
+[int height, 514, 393] = 187
 }
 [end]
