@@ -1,32 +1,44 @@
 User coordinates:
-[0, 0]
+[0, 478]
 Canvas name:
 [My New Canvas]
 Classes:
-[fbwfwen, 293, 370]
+[fbwfwen, 293, -108]
 {
 }
-[Trofik, 287, 201]
+[Trofik, 287, -277]
 {
 [New Note, 235, 177] = 
 [New Note, 486, 128] = 
 }
-[Class 3, 66, 376]
+[Class 3, 66, -102]
 {
 }
-[another class, 392, 427]
+[another class, 392, -51]
 {
 }
-[New Class, 568, 198]
+[New Class, 568, -280]
 {
 }
-[Tolik, 507, 359]
+[Tolik, 507, -119]
 {
 [int Age, 48, 183] = 21
 [string College, 228, 38] = Las Positas + UCD
 [int height, 391, 37] = 187
 [int AgeCopy, 44, 40] = 21
 [string CollegeCopy, 230, 174] = Las Positas + UCD
-[Picture, 250, 350] = RescueExpedition_3.png
+[Picture, 431, 194] = RescueExpedition_3.png
+}
+[Dmitriy, 97, 145]
+{
+}
+[Anatoly, 463, 400]
+{
+}
+[My new class, 0, 0]
+{
+[string My text, 250, 100] = 
+[int My number, 250, 150] = 15
+[picture , 406, 288] = RescueExpedition_4.png
 }
 [end]

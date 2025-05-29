@@ -121,6 +121,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CircleClass.cpp" />
+    <ClCompile Include="demo.cpp" />
     <ClCompile Include="InnerWindow.cpp" />
     <ClCompile Include="VNTS_Canvas.cpp" />
   </ItemGroup>
