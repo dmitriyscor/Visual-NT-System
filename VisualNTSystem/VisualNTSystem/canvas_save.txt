@@ -22,10 +22,11 @@ Classes:
 }
 [Tolik, 507, 359]
 {
-[int Age, 87, 198] = 21
-[string College, 257, 84] = Las Positas + UCD
-[int height, 514, 393] = 187
-[int AgeCopy, 185, 395] = 21
-[string CollegeCopy, 445, 181] = Las Positas + UCD
+[int Age, 48, 183] = 21
+[string College, 228, 38] = Las Positas + UCD
+[int height, 391, 37] = 187
+[int AgeCopy, 44, 40] = 21
+[string CollegeCopy, 230, 174] = Las Positas + UCD
+[Picture, 250, 350] = RescueExpedition_3.png
 }
 [end]
