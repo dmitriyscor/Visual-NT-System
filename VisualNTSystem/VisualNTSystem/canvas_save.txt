@@ -8,7 +8,8 @@ Classes:
 }
 [Trofik, 287, 201]
 {
-[New Note, 250, 100] = 
+[New Note, 235, 177] = 
+[New Note, 486, 128] = 
 }
 [Class 3, 66, 376]
 {
@@ -18,5 +19,14 @@ Classes:
 }
 [New Class, 568, 198]
 {
+}
+[Tolik, 507, 359]
+{
+[int Age, 48, 183] = 21
+[string College, 228, 38] = Las Positas + UCD
+[int height, 391, 37] = 187
+[int AgeCopy, 44, 40] = 21
+[string CollegeCopy, 230, 174] = Las Positas + UCD
+[Picture, 250, 350] = RescueExpedition_3.png
 }
 [end]

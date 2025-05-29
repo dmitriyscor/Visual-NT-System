@@ -34,8 +34,20 @@ namespace VisualNTSystem {
 		bool awaitingSecondClick = false;
 
 		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Collections::Generic::Dictionary<System::String^, System::String^>^>^ noteVariables;
+		System::Windows::Forms::Button^ numberButton = gcnew System::Windows::Forms::Button();
+
+		
+		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Windows::Forms::TextBox^>^ noteValueTextBoxes;
+		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>^ noteTypes;
+		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>^ notePointerExpressions;
+		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Windows::Forms::Button^>^ noteSubmitButtons;
+		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::DateTime>^ pictureLastClickTimes;
+
+
+		
 		System::Collections::Generic::Dictionary<System::String^, System::Windows::Forms::TextBox^>^ variableTextBoxes;
 		System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>^ noteValues;
+		System::Windows::Forms::Button^ pictureButton = gcnew System::Windows::Forms::Button();
 
 
 	public:
@@ -72,7 +84,13 @@ namespace VisualNTSystem {
 
 			this->canvas->Paint += gcnew PaintEventHandler(this, &InnerWindow::Canvas_Paint);
 
+			noteTypes = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>();
 			noteVariables = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Collections::Generic::Dictionary<System::String^, System::String^>^>();
+			noteValueTextBoxes = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Windows::Forms::TextBox^>();
+			noteSubmitButtons = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::Windows::Forms::Button^>();
+			notePointerExpressions = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>();
+			pictureLastClickTimes = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::DateTime>();
+
 			noteButtons = gcnew System::Collections::Generic::List<System::Windows::Forms::Button^>();
 			noteValues = gcnew System::Collections::Generic::Dictionary<System::Windows::Forms::Button^, System::String^>();
 			clickTimer = gcnew System::Windows::Forms::Timer();
@@ -179,6 +197,28 @@ namespace VisualNTSystem {
 			noteButton->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
 			noteButton->Click += gcnew System::EventHandler(this, &InnerWindow::NoteButton_Click);
 			this->Controls->Add(noteButton);
+			//
+			// Number button
+			//
+			numberButton->Text = L"Number";
+			numberButton->Location = System::Drawing::Point(20, 100);
+			numberButton->Size = System::Drawing::Size(160, 40);
+			numberButton->BackColor = System::Drawing::Color::FromArgb(60, 180, 100);
+			numberButton->ForeColor = System::Drawing::Color::White;
+			numberButton->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+			numberButton->Click += gcnew System::EventHandler(this, &InnerWindow::NumberButton_Click);
+			this->Controls->Add(numberButton);
+			//
+			//Picture Button
+			//
+			pictureButton->Text = L"Picture";
+			pictureButton->Location = System::Drawing::Point(20, 150);
+			pictureButton->Size = System::Drawing::Size(160, 40);
+			pictureButton->BackColor = System::Drawing::Color::Gray;
+			pictureButton->ForeColor = System::Drawing::Color::White;
+			pictureButton->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+			pictureButton->Click += gcnew System::EventHandler(this, &InnerWindow::PictureButton_Click);
+			this->Controls->Add(pictureButton);
 			// 
 			// SaveButton
 			// 
@@ -194,6 +234,8 @@ namespace VisualNTSystem {
 			this->SaveButton->Size = System::Drawing::Size(30, 30);
 			this->SaveButton->TabIndex = 6;
 			this->SaveButton->UseVisualStyleBackColor = false;
+			this->SaveButton->Click += gcnew System::EventHandler(this, &InnerWindow::SaveButton_Click);
+
 			// 
 			// SaveAndExitButton
 			// 
@@ -212,7 +254,8 @@ namespace VisualNTSystem {
 			this->SaveAndExitButton->TabIndex = 11;
 			this->SaveAndExitButton->Text = L"Save And Go Back";
 			this->SaveAndExitButton->UseVisualStyleBackColor = false;
-			this->SaveButton->Click += gcnew System::EventHandler(this, &InnerWindow::SaveButton_Click);
+			this->SaveAndExitButton->Click += gcnew System::EventHandler(this, &InnerWindow::SaveAndExitButton_Click);
+
 
 			// 
 			// canvas
@@ -259,26 +302,159 @@ namespace VisualNTSystem {
 	private:
 		void DisplayVariables(System::Collections::Generic::Dictionary<System::String^, System::String^>^ variables)
 		{
-			int i = 0;
-			for each (auto kvp in variables)
+			for each(auto kvp in variables)
 			{
-				System::Windows::Forms::Label^ lbl = gcnew System::Windows::Forms::Label();
-				lbl->Text = kvp.Key;
-				lbl->Location = System::Drawing::Point(20, 40 + i * 30);
-				lbl->AutoSize = true;
+				// Parse key: expected format "[type name, x, y]"
+				System::String^ key = kvp.Key->Trim();
+				if (!key->StartsWith("[") || !key->EndsWith("]"))
+					continue;
 
-				System::Windows::Forms::TextBox^ txt = gcnew System::Windows::Forms::TextBox();
-				txt->Text = kvp.Value;
-				txt->Location = System::Drawing::Point(120, 40 + i * 30);
-				txt->Width = 200;
+				System::String^ content = key->Trim('[', ']');
+				array<System::String^>^ parts = content->Split(',');
+				if (parts->Length < 3)
+					continue;
 
-				this->canvas->Controls->Add(lbl);
-				this->canvas->Controls->Add(txt);
+				System::String^ typeAndName = parts[0]->Trim();
+				System::String^ varType;
+				System::String^ varName;
+				int spaceIdx = typeAndName->IndexOf(' ');
+				if (spaceIdx > 0) {
+					varType = typeAndName->Substring(0, spaceIdx)->Trim();
+					varName = typeAndName->Substring(spaceIdx + 1)->Trim();
+				}
+				else {
+					varType = typeAndName;
+					varName = ""; // No name for picture, just the type
+				}
 
-				variableTextBoxes[kvp.Key] = txt;
-				i++;
+
+				int x = System::Convert::ToInt32(parts[1]->Trim());
+				int y = System::Convert::ToInt32(parts[2]->Trim());
+				System::String^ noteValue = kvp.Value;
+
+
+				if (varType == "int") 
+				{
+					// Create number variable (green)
+					System::Windows::Forms::Button^ numberVar = gcnew System::Windows::Forms::Button();
+					numberVar->Text = varName;
+					numberVar->Size = System::Drawing::Size(120, 40);
+					numberVar->Location = System::Drawing::Point(x, y);
+					numberVar->BackColor = System::Drawing::Color::FromArgb(60, 180, 100);
+					numberVar->ForeColor = System::Drawing::Color::White;
+					numberVar->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+					numberVar->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
+					numberVar->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
+					numberVar->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
+					numberVar->Click += gcnew System::EventHandler(this, &InnerWindow::Note_Click);
+
+					System::Windows::Forms::TextBox^ txt = gcnew System::Windows::Forms::TextBox();
+					txt->Text = noteValue;
+					txt->Location = System::Drawing::Point(x, y + numberVar->Height);
+					txt->Size = System::Drawing::Size(90, 60);
+					txt->Multiline = true;
+					txt->ReadOnly = false;
+					txt->Tag = numberVar;
+					txt->Font = gcnew System::Drawing::Font(L"Candara", 12.0F);
+					txt->BackColor = System::Drawing::Color::White;
+					txt->KeyPress += gcnew System::Windows::Forms::KeyPressEventHandler(this, &InnerWindow::NumberTextBox_KeyPress);
+
+					System::Windows::Forms::Button^ submitBtn = gcnew System::Windows::Forms::Button();
+					submitBtn->Text = L"Submit";
+					submitBtn->Size = System::Drawing::Size(50, 60);
+					submitBtn->Location = System::Drawing::Point(x + 90, y + numberVar->Height);
+					submitBtn->Tag = txt;
+					submitBtn->Click += gcnew System::EventHandler(this, &InnerWindow::SubmitValue_Click);
+
+					this->canvas->Controls->Add(numberVar);
+					this->canvas->Controls->Add(txt);
+					this->canvas->Controls->Add(submitBtn);
+					noteButtons->Add(numberVar);
+					noteValues[numberVar] = noteValue;
+					noteTypes[numberVar] = "int";
+					noteValueTextBoxes[numberVar] = txt;
+					noteSubmitButtons[numberVar] = submitBtn;
+				}
+				else if(varType == "string")
+				{
+					// Create string variable (blue)
+					System::Windows::Forms::Button^ btn = gcnew System::Windows::Forms::Button();
+					btn->Text = varName;
+					btn->Size = System::Drawing::Size(120, 40);
+					btn->Location = System::Drawing::Point(x, y);
+					btn->BackColor = System::Drawing::Color::FromArgb(60, 120, 200);
+					btn->ForeColor = System::Drawing::Color::White;
+					btn->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+					btn->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
+					btn->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
+					btn->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
+					btn->Click += gcnew System::EventHandler(this, &InnerWindow::Note_Click);
+
+					System::Windows::Forms::TextBox^ txt = gcnew System::Windows::Forms::TextBox();
+					txt->Text = noteValue;
+					txt->Location = System::Drawing::Point(x, y + btn->Height);
+					txt->Size = System::Drawing::Size(90, 60);
+					txt->Multiline = true;
+					txt->ReadOnly = false;
+					txt->Tag = btn;
+					txt->Font = gcnew System::Drawing::Font(L"Candara", 12.0F);
+					txt->BackColor = System::Drawing::Color::White;
+
+					System::Windows::Forms::Button^ submitBtn = gcnew System::Windows::Forms::Button();
+					submitBtn->Text = L"Submit";
+					submitBtn->Size = System::Drawing::Size(50, 60);
+					submitBtn->Location = System::Drawing::Point(x + 90, y + btn->Height);
+					submitBtn->Tag = txt;
+					submitBtn->Click += gcnew System::EventHandler(this, &InnerWindow::SubmitValue_Click);
+
+					this->canvas->Controls->Add(btn);
+					this->canvas->Controls->Add(txt);
+					this->canvas->Controls->Add(submitBtn);
+					noteButtons->Add(btn);
+					noteValues[btn] = noteValue;
+					noteTypes[btn] = "string";
+					noteValueTextBoxes[btn] = txt;
+					noteSubmitButtons[btn] = submitBtn;
+				}
+				else if (varType->ToLower() == "picture")
+				{
+					// Create picture button
+					System::Windows::Forms::Button^ picBtn = gcnew System::Windows::Forms::Button();
+					picBtn->Size = System::Drawing::Size(200, 200);
+					picBtn->Location = System::Drawing::Point(x, y);
+					picBtn->BackColor = System::Drawing::Color::LightGray;
+					picBtn->ForeColor = System::Drawing::Color::DimGray;
+					picBtn->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+					picBtn->Font = gcnew System::Drawing::Font(L"Candara", 16.0F, System::Drawing::FontStyle::Bold);
+					picBtn->Text = noteValue->Length > 0 ? "" : "Upload";
+					picBtn->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
+					picBtn->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
+					picBtn->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
+					picBtn->MouseClick += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Picture_MouseClick);
+
+					if (noteValue->Length > 0) {
+						System::String^ imgPath = System::IO::Path::Combine("pictures", noteValue);
+						if (System::IO::File::Exists(imgPath)) {
+							picBtn->BackgroundImage = System::Drawing::Image::FromFile(imgPath);
+							picBtn->BackgroundImageLayout = System::Windows::Forms::ImageLayout::Zoom;
+						}
+					}
+					this->canvas->Controls->Add(picBtn);
+					noteButtons->Add(picBtn);
+					noteTypes[picBtn] = "picture";
+					noteValues[picBtn] = noteValue;
+				}
+
+
+				//other data types
 			}
 		}
+
+
+
+
+
+
 
 
 
@@ -299,70 +475,228 @@ namespace VisualNTSystem {
 		bool inTargetClass = false;
 		bool inBraces = false;
 
-		for each (System::String ^ line in lines)
+		// Temporary map for name->button to resolve pointers after all buttons are created
+		System::Collections::Generic::Dictionary<System::String^, System::Windows::Forms::Button^>^ nameToButton =
+			gcnew System::Collections::Generic::Dictionary<System::String^, System::Windows::Forms::Button^>();
+
+		// First pass: create all variables/buttons
+		for each(System::String ^ line in lines)
 		{
 			// Find the class header (exact match)
-			if (!inTargetClass && line->StartsWith("["))
-			{
+			if (!inTargetClass && line->StartsWith("[")) {
 				System::String^ header = line->Trim('[', ']');
 				array<System::String^>^ parts = header->Split(',');
-				if (parts->Length > 0 && parts[0]->Trim()->Equals(className))
-				{
+				if (parts->Length > 0 && parts[0]->Trim()->Equals(className)) {
 					inTargetClass = true;
 					continue;
 				}
 			}
 			// Enter the braces section
-			if (inTargetClass && !inBraces && line->Trim()->Equals("{"))
-			{
+			if (inTargetClass && !inBraces && line->Trim()->Equals("{")) {
 				inBraces = true;
 				continue;
 			}
 			// Exit the braces section
-			if (inTargetClass && inBraces && line->Trim()->Equals("}"))
-			{
+			if (inTargetClass && inBraces && line->Trim()->Equals("}")) {
 				break;
 			}
-			// Parse notes inside braces
-			if (inBraces)
-			{
-				int eq = line->IndexOf('=');
-				if (eq > 0)
-				{
-					System::String^ left = line->Substring(0, eq)->Trim();
-					System::String^ value = line->Substring(eq + 1)->Trim();
-					if (left->StartsWith("[") && left->EndsWith("]"))
-					{
+			// Parse variables/notes inside braces
+			if (inBraces) {
+				System::String^ trimmedLine = line->Trim();
+				int eq = trimmedLine->IndexOf('=');
+
+				// Case 1: [type name, x, y] = value
+				if (eq > 0) {
+					System::String^ left = trimmedLine->Substring(0, eq)->Trim();
+					System::String^ value = trimmedLine->Substring(eq + 1)->Trim();
+					if (left->StartsWith("[") && left->EndsWith("]")) {
 						System::String^ content = left->Trim('[', ']');
 						array<System::String^>^ parts = content->Split(',');
-						if (parts->Length >= 3)
-						{
-							System::String^ noteName = parts[0]->Trim();
+						if (parts->Length >= 3) {
+							System::String^ typeAndName = parts[0]->Trim();
+							int spaceIdx = typeAndName->IndexOf(' ');
+							System::String^ varType = "string";
+							System::String^ varName = typeAndName;
+							if (spaceIdx > 0) {
+								varType = typeAndName->Substring(0, spaceIdx)->Trim();
+								varName = typeAndName->Substring(spaceIdx + 1)->Trim();
+							}
 							int x = System::Convert::ToInt32(parts[1]->Trim());
 							int y = System::Convert::ToInt32(parts[2]->Trim());
 
-							// Create note button
-							System::Windows::Forms::Button^ note = gcnew System::Windows::Forms::Button();
-							note->Text = noteName;
-							note->Size = System::Drawing::Size(120, 40);
-							note->Location = System::Drawing::Point(x, y);
-							note->BackColor = System::Drawing::Color::FromArgb(60, 120, 200);
-							note->ForeColor = System::Drawing::Color::White;
-							note->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
-							note->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
-							note->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
-							note->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
-							note->Click += gcnew System::EventHandler(this, &InnerWindow::Note_Click);
+							if (varType == "int") {
+								System::Windows::Forms::Button^ btn = gcnew System::Windows::Forms::Button();
+								btn->Text = varName;
+								btn->Size = System::Drawing::Size(120, 40);
+								btn->Location = System::Drawing::Point(x, y);
+								btn->BackColor = System::Drawing::Color::FromArgb(60, 180, 100);
+								btn->ForeColor = System::Drawing::Color::White;
+								btn->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+								btn->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
+								btn->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
+								btn->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
+								btn->Click += gcnew System::EventHandler(this, &InnerWindow::Note_Click);
 
-							this->canvas->Controls->Add(note);
-							noteButtons->Add(note);
-							noteValues[note] = value;
+								System::Windows::Forms::TextBox^ txt = gcnew System::Windows::Forms::TextBox();
+								txt->Text = value;
+								txt->Location = System::Drawing::Point(x, y + btn->Height);
+								txt->Size = System::Drawing::Size(90, 60);
+								txt->Multiline = true;
+								txt->ReadOnly = false;
+								txt->Tag = btn;
+								txt->Font = gcnew System::Drawing::Font(L"Candara", 12.0F);
+								txt->BackColor = System::Drawing::Color::White;
+								txt->KeyPress += gcnew System::Windows::Forms::KeyPressEventHandler(this, &InnerWindow::NumberTextBox_KeyPress);
+
+								System::Windows::Forms::Button^ submitBtn = gcnew System::Windows::Forms::Button();
+								submitBtn->Text = L"Submit";
+								submitBtn->Size = System::Drawing::Size(50, 60);
+								submitBtn->Location = System::Drawing::Point(x + 90, y + btn->Height);
+								submitBtn->Tag = txt;
+								submitBtn->Click += gcnew System::EventHandler(this, &InnerWindow::SubmitValue_Click);
+
+								this->canvas->Controls->Add(btn);
+								this->canvas->Controls->Add(txt);
+								this->canvas->Controls->Add(submitBtn);
+								noteButtons->Add(btn);
+								noteValues[btn] = value;
+								noteTypes[btn] = "int";
+								noteValueTextBoxes[btn] = txt;
+								noteSubmitButtons[btn] = submitBtn;
+								nameToButton[varName] = btn;
+							}
+							else if (varType->ToLower() == "string") {
+								System::Windows::Forms::Button^ btn = gcnew System::Windows::Forms::Button();
+								btn->Text = varName;
+								btn->Size = System::Drawing::Size(120, 40);
+								btn->Location = System::Drawing::Point(x, y);
+								btn->BackColor = System::Drawing::Color::FromArgb(60, 120, 200);
+								btn->ForeColor = System::Drawing::Color::White;
+								btn->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+								btn->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
+								btn->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
+								btn->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
+								btn->Click += gcnew System::EventHandler(this, &InnerWindow::Note_Click);
+
+								System::Windows::Forms::TextBox^ txt = gcnew System::Windows::Forms::TextBox();
+								txt->Text = value;
+								txt->Location = System::Drawing::Point(x, y + btn->Height);
+								txt->Size = System::Drawing::Size(90, 60);
+								txt->Multiline = true;
+								txt->ReadOnly = false;
+								txt->Tag = btn;
+								txt->Font = gcnew System::Drawing::Font(L"Candara", 12.0F);
+								txt->BackColor = System::Drawing::Color::White;
+
+								System::Windows::Forms::Button^ submitBtn = gcnew System::Windows::Forms::Button();
+								submitBtn->Text = L"Submit";
+								submitBtn->Size = System::Drawing::Size(50, 60);
+								submitBtn->Location = System::Drawing::Point(x + 90, y + btn->Height);
+								submitBtn->Tag = txt;
+								submitBtn->Click += gcnew System::EventHandler(this, &InnerWindow::SubmitValue_Click);
+
+								this->canvas->Controls->Add(btn);
+								this->canvas->Controls->Add(txt);
+								this->canvas->Controls->Add(submitBtn);
+								noteButtons->Add(btn);
+								noteValues[btn] = value;
+								noteTypes[btn] = "string";
+								noteValueTextBoxes[btn] = txt;
+								noteSubmitButtons[btn] = submitBtn;
+								nameToButton[varName] = btn;
+							}
+							// Handle pointer or value for int/string
+							if (value->StartsWith("*")) {
+								notePointerExpressions[nameToButton[varName]] = value;
+							}
+						}
+					}
+				}
+				
+
+				// Case 2: [Picture filename, x, y] (no '=')
+				if (trimmedLine->StartsWith("[") && trimmedLine->EndsWith("]")) 
+				{
+					System::String^ content = trimmedLine->Trim('[', ']');
+					array<System::String^>^ parts = content->Split(',');
+					if (parts->Length >= 3) {
+						System::String^ typeAndName = parts[0]->Trim();
+						int spaceIdx = typeAndName->IndexOf(' ');
+						System::String^ varType = "string";
+						System::String^ varName = typeAndName;
+						if (spaceIdx > 0) {
+							varType = typeAndName->Substring(0, spaceIdx)->Trim();
+							varName = typeAndName->Substring(spaceIdx + 1)->Trim();
+						}
+						int x = System::Convert::ToInt32(parts[1]->Trim());
+						int y = System::Convert::ToInt32(parts[2]->Trim());
+
+
+						if (varType->ToLower() == "picture") 
+						{
+
+							System::Windows::Forms::Button^ picBtn = gcnew System::Windows::Forms::Button();
+							picBtn->Size = System::Drawing::Size(200, 200);
+							picBtn->Location = System::Drawing::Point(x, y);
+							picBtn->BackColor = System::Drawing::Color::LightGray;
+							picBtn->ForeColor = System::Drawing::Color::DimGray;
+							picBtn->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+							picBtn->Font = gcnew System::Drawing::Font(L"Candara", 16.0F, System::Drawing::FontStyle::Bold);
+							picBtn->Text = varName->Length > 0 ? "" : "Upload";
+							picBtn->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
+							picBtn->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
+							picBtn->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
+							picBtn->MouseClick += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Picture_MouseClick);
+
+							if (varName->Length > 0) {
+								System::String^ imgPath = System::IO::Path::Combine("pictures", varName);
+								if (System::IO::File::Exists(imgPath)) {
+									picBtn->BackgroundImage = System::Drawing::Image::FromFile(imgPath);
+									picBtn->BackgroundImageLayout = System::Windows::Forms::ImageLayout::Zoom;
+								}
+							}
+							this->canvas->Controls->Add(picBtn);
+							noteButtons->Add(picBtn);
+							noteTypes[picBtn] = "picture";
+							noteValues[picBtn] = varName;
+							nameToButton[varName] = picBtn;
+						
 						}
 					}
 				}
 			}
 		}
+
+		// Second pass: resolve pointer values for display
+		for each(System::Windows::Forms::Button ^ btn in noteButtons)
+		{
+			if (notePointerExpressions->ContainsKey(btn))
+			{
+				System::String^ pointerExpr = notePointerExpressions[btn];
+				System::String^ refName = pointerExpr->Substring(1)->Trim();
+				if (nameToButton->ContainsKey(refName))
+				{
+					System::Windows::Forms::Button^ refBtn = nameToButton[refName];
+					if (noteValues->ContainsKey(refBtn))
+						noteValues[btn] = noteValues[refBtn];
+					else
+						noteValues[btn] = "";
+				}
+				else
+				{
+					noteValues[btn] = "";
+				}
+				// Update the textbox display
+				if (noteValueTextBoxes->ContainsKey(btn))
+					noteValueTextBoxes[btn]->Text = noteValues[btn];
+			}
+		}
 	}
+
+
+
+
+
 
 
 
@@ -450,6 +784,8 @@ namespace VisualNTSystem {
 	//***********************************************************************************
 
 
+	System::Drawing::Point noteMouseDownPos;
+	bool noteWasDragged = false;
 
 	bool isNoteDragging = false;
 	System::Drawing::Point noteDragOffset;
@@ -475,6 +811,7 @@ namespace VisualNTSystem {
 		this->canvas->Controls->Add(note);
 		noteButtons->Add(note);
 		noteValues[note] = "";
+		noteTypes[note] = "string";
 	}
 
 
@@ -486,19 +823,86 @@ namespace VisualNTSystem {
 			draggingNote = safe_cast<System::Windows::Forms::Button^>(sender);
 			noteDragOffset = e->Location;
 			draggingNote->Cursor = Cursors::Hand;
+			noteMouseDownPos = e->Location;
+			noteWasDragged = false;
 		}
 	}
 
-	private: System::Void Note_MouseMove(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
-	{
-		if (isNoteDragging && draggingNote != nullptr)
+	private: 
+		System::Void Note_MouseMove(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
 		{
-			System::Drawing::Point newLocation = draggingNote->Location;
-			newLocation.X += e->X - noteDragOffset.X;
-			newLocation.Y += e->Y - noteDragOffset.Y;
-			draggingNote->Location = newLocation;
+			if (isNoteDragging && draggingNote != nullptr)
+			{
+				// If moved more than a few pixels, consider as drag
+				if (!noteWasDragged)
+				{
+					int dx = e->X - noteMouseDownPos.X;
+					int dy = e->Y - noteMouseDownPos.Y;
+					if (Math::Abs(dx) > 3 || Math::Abs(dy) > 3)
+						noteWasDragged = true;
+				}
+
+				// ... (rest of your drag logic)
+				// (keep your existing code here)
+				// Calculate new location for the button
+				System::Drawing::Point newLocation = draggingNote->Location;
+				newLocation.X += e->X - noteDragOffset.X;
+				newLocation.Y += e->Y - noteDragOffset.Y;
+
+				// Prepare rectangles for the button, textbox, and submit button
+				System::Drawing::Rectangle newBtnRect(newLocation, draggingNote->Size);
+				System::Drawing::Rectangle newTxtRect(newLocation.X, newLocation.Y + draggingNote->Height, 90, 60);
+				System::Drawing::Rectangle newSubmitRect(newLocation.X + 90, newLocation.Y + draggingNote->Height, 50, 60);
+
+				// Check for overlap with other notes and their controls
+				bool overlap = false;
+				for each(System::Windows::Forms::Button ^ otherBtn in noteButtons)
+				{
+					if (otherBtn == draggingNote) continue;
+					System::Drawing::Point otherLoc = otherBtn->Location;
+					System::Drawing::Rectangle otherBtnRect(otherLoc, otherBtn->Size);
+
+					// Associated controls
+					System::Drawing::Rectangle otherTxtRect(otherLoc.X, otherLoc.Y + otherBtn->Height, 90, 60);
+					System::Drawing::Rectangle otherSubmitRect(otherLoc.X + 90, otherLoc.Y + otherBtn->Height, 50, 60);
+
+					if (newBtnRect.IntersectsWith(otherBtnRect) ||
+						newBtnRect.IntersectsWith(otherTxtRect) ||
+						newBtnRect.IntersectsWith(otherSubmitRect) ||
+						newTxtRect.IntersectsWith(otherBtnRect) ||
+						newTxtRect.IntersectsWith(otherTxtRect) ||
+						newTxtRect.IntersectsWith(otherSubmitRect) ||
+						newSubmitRect.IntersectsWith(otherBtnRect) ||
+						newSubmitRect.IntersectsWith(otherTxtRect) ||
+						newSubmitRect.IntersectsWith(otherSubmitRect))
+					{
+						overlap = true;
+						break;
+					}
+				}
+				if (overlap)
+					return; // Don't move if overlap would occur
+
+				// Move the button
+				draggingNote->Location = newLocation;
+
+				// Move the associated TextBox
+				if (noteValueTextBoxes->ContainsKey(draggingNote))
+				{
+					System::Windows::Forms::TextBox^ txt = noteValueTextBoxes[draggingNote];
+					txt->Location = System::Drawing::Point(newLocation.X, newLocation.Y + draggingNote->Height);
+				}
+
+				// Move the associated Submit button
+				if (noteSubmitButtons->ContainsKey(draggingNote))
+				{
+					System::Windows::Forms::Button^ submitBtn = noteSubmitButtons[draggingNote];
+					submitBtn->Location = System::Drawing::Point(newLocation.X + 90, newLocation.Y + draggingNote->Height);
+				}
+			}
 		}
-	}
+
+
 
 	private: System::Void Note_MouseUp(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
 	{
@@ -506,6 +910,13 @@ namespace VisualNTSystem {
 		{
 			isNoteDragging = false;
 			draggingNote->Cursor = Cursors::Default;
+
+			// If not dragged, treat as click and show rename
+			if (!noteWasDragged)
+			{
+				ShowRenameTextBox(draggingNote);
+			}
+
 			draggingNote = nullptr;
 		}
 	}
@@ -513,23 +924,7 @@ namespace VisualNTSystem {
 	private: System::Void Note_Click(System::Object^ sender, System::EventArgs^ e)
 	{
 		System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(sender);
-
-		if (awaitingSecondClick && lastClickedButton == btn)
-		{
-			// Double click: edit value
-			awaitingSecondClick = false;
-			clickTimer->Stop();
-			lastClickedButton = nullptr;
-			ShowValueTextBox(btn);
-		}
-		else
-		{
-			// First click: start timer and wait for possible double-click
-			awaitingSecondClick = true;
-			lastClickedButton = btn;
-			clickTimer->Stop();
-			clickTimer->Start();
-		}
+		ShowRenameTextBox(btn);
 	}
 
 	private: System::Void ClickTimer_Tick(System::Object^ sender, System::EventArgs^ e)
@@ -565,26 +960,22 @@ namespace VisualNTSystem {
 		renameTextBox->SelectAll();
 	}
 
-private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
-{
-	if (valueTextBox == nullptr)
+private: 
+	void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 	{
-		valueTextBox = gcnew System::Windows::Forms::TextBox();
-		valueTextBox->BorderStyle = System::Windows::Forms::BorderStyle::FixedSingle;
-		valueTextBox->Font = btn->Font;
-		valueTextBox->Leave += gcnew System::EventHandler(this, &InnerWindow::ValueTextBox_Leave);
-		valueTextBox->KeyDown += gcnew System::Windows::Forms::KeyEventHandler(this, &InnerWindow::ValueTextBox_KeyDown);
-		this->canvas->Controls->Add(valueTextBox);
+		if (!noteValueTextBoxes->ContainsKey(btn))
+			return;
+
+		System::Windows::Forms::TextBox^ txt = noteValueTextBoxes[btn];
+		txt->ReadOnly = false;
+		if (notePointerExpressions->ContainsKey(btn))
+			txt->Text = notePointerExpressions[btn];
+		else
+			txt->Text = noteValues[btn];
+		txt->Focus();
+		txt->SelectAll();
 	}
-	valueTextBox->Location = System::Drawing::Point(btn->Location.X, btn->Location.Y + btn->Height);
-	valueTextBox->Size = btn->Size;
-	valueTextBox->Text = noteValues[btn];
-	valueTextBox->Tag = btn;
-	valueTextBox->Visible = true;
-	valueTextBox->BringToFront();
-	valueTextBox->Focus();
-	valueTextBox->SelectAll();
-}
+
 
 	private: System::Void RenameTextBox_Leave(System::Object^ sender, System::EventArgs^ e)
 	{
@@ -614,13 +1005,10 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 
 	private: System::Void ValueTextBox_Leave(System::Object^ sender, System::EventArgs^ e)
 	{
-		if (valueTextBox->Tag != nullptr)
-		{
-			System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(valueTextBox->Tag);
-			noteValues[btn] = valueTextBox->Text;
-		}
-		valueTextBox->Visible = false;
-		valueTextBox->Tag = nullptr;
+		System::Windows::Forms::TextBox^ txt = safe_cast<System::Windows::Forms::TextBox^>(sender);
+		System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(txt->Tag);
+		noteValues[btn] = txt->Text;
+		txt->ReadOnly = true;
 	}
 
 	private: System::Void ValueTextBox_KeyDown(System::Object^ sender, System::Windows::Forms::KeyEventArgs^ e)
@@ -632,11 +1020,222 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 		}
 		else if (e->KeyCode == System::Windows::Forms::Keys::Escape)
 		{
-			valueTextBox->Visible = false;
-			valueTextBox->Tag = nullptr;
+			System::Windows::Forms::TextBox^ txt = safe_cast<System::Windows::Forms::TextBox^>(sender);
+			txt->ReadOnly = true;
 			e->SuppressKeyPress = true;
 		}
 	}
+
+private:
+	void SubmitFeedbackTimer_Tick(System::Object^ sender, System::EventArgs^ e)
+	{
+		System::Windows::Forms::Timer^ timer = safe_cast<System::Windows::Forms::Timer^>(sender);
+		if (timer->Tag != nullptr)
+		{
+			System::Windows::Forms::Button^ submitBtn = safe_cast<System::Windows::Forms::Button^>(timer->Tag);
+			submitBtn->BackColor = System::Drawing::SystemColors::Control;
+		}
+		timer->Stop();
+	}
+	
+
+private: 
+	System::Void SubmitValue_Click(System::Object^ sender, System::EventArgs^ e)
+	{
+		System::Windows::Forms::Button^ submitBtn = safe_cast<System::Windows::Forms::Button^>(sender);
+		System::Windows::Forms::TextBox^ txt = safe_cast<System::Windows::Forms::TextBox^>(submitBtn->Tag);
+		System::Windows::Forms::Button^ btn = safe_cast<System::Windows::Forms::Button^>(txt->Tag);
+		System::String^ input = txt->Text->Trim();
+		System::String^ thisType = noteTypes->ContainsKey(btn) ? noteTypes[btn] : "string";
+
+		if (input->StartsWith("*"))
+		{
+			System::String^ refName = input->Substring(1)->Trim();
+			System::Windows::Forms::Button^ refBtn = nullptr;
+			for each(System::Windows::Forms::Button ^ other in noteButtons)
+			{
+				if (other->Text->Equals(refName))
+				{
+					refBtn = other;
+					break;
+				}
+			}
+			if (refBtn == nullptr)
+			{
+				MessageBox::Show("Variable was not found", "Pointer Error", MessageBoxButtons::OK, MessageBoxIcon::Error);
+				txt->Focus();
+				txt->SelectAll();
+				return;
+			}
+			System::String^ refType = noteTypes->ContainsKey(refBtn) ? noteTypes[refBtn] : "string";
+			if (thisType != refType)
+			{
+				MessageBox::Show("Type mismatch for pointer assignment", "Pointer Error", MessageBoxButtons::OK, MessageBoxIcon::Error);
+				txt->Focus();
+				txt->SelectAll();
+				return;
+			}
+			// Set value to referenced value for display and storage (do not store pointer)
+			noteValues[btn] = noteValues->ContainsKey(refBtn) ? noteValues[refBtn] : "";
+			txt->Text = noteValues[btn];
+			txt->ReadOnly = true;
+		}
+		else
+		{
+			// For int, validate input is a valid integer
+			if (thisType == "int")
+			{
+				int dummy;
+				if (!Int32::TryParse(input, dummy))
+				{
+					MessageBox::Show("Please enter a valid integer value.", "Input Error", MessageBoxButtons::OK, MessageBoxIcon::Error);
+					txt->Focus();
+					txt->SelectAll();
+					return;
+				}
+			}
+			noteValues[btn] = input;
+			txt->ReadOnly = true;
+		}
+
+		// Visual feedback
+		submitBtn->BackColor = System::Drawing::Color::LightGreen;
+		System::Windows::Forms::Timer^ timer = gcnew System::Windows::Forms::Timer();
+		timer->Interval = 300;
+		timer->Tag = submitBtn;
+		timer->Tick += gcnew System::EventHandler(this, &InnerWindow::SubmitFeedbackTimer_Tick);
+		timer->Start();
+	}
+
+
+
+
+
+
+	//****************************************Number***********************************
+	private: System::Void NumberButton_Click(System::Object^ sender, System::EventArgs^ e)
+	{
+		System::Windows::Forms::Button^ numberVar = gcnew System::Windows::Forms::Button();
+		numberVar->Text = L"New Number";
+		numberVar->Size = System::Drawing::Size(120, 40);
+		numberVar->Location = System::Drawing::Point(250, 100 + noteButtons->Count * 50);
+		numberVar->BackColor = System::Drawing::Color::FromArgb(60, 180, 100);
+		numberVar->ForeColor = System::Drawing::Color::White;
+		numberVar->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+
+		numberVar->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
+		numberVar->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
+		numberVar->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
+		numberVar->Click += gcnew System::EventHandler(this, &InnerWindow::Note_Click);
+
+		// Integer-only TextBox
+		System::Windows::Forms::TextBox^ txt = gcnew System::Windows::Forms::TextBox();
+		txt->Text = "";
+		txt->Location = System::Drawing::Point(numberVar->Location.X, numberVar->Location.Y + numberVar->Height);
+		txt->Size = System::Drawing::Size(90, 60);
+		txt->Multiline = true;
+		txt->ReadOnly = false;
+		txt->Tag = numberVar;
+		txt->Font = gcnew System::Drawing::Font(L"Candara", 12.0F);
+		txt->BackColor = System::Drawing::Color::White;
+		txt->KeyPress += gcnew System::Windows::Forms::KeyPressEventHandler(this, &InnerWindow::NumberTextBox_KeyPress);
+
+		// Submit button
+		System::Windows::Forms::Button^ submitBtn = gcnew System::Windows::Forms::Button();
+		submitBtn->Text = L"Submit";
+		submitBtn->Size = System::Drawing::Size(50, 60);
+		submitBtn->Location = System::Drawing::Point(numberVar->Location.X + 90, numberVar->Location.Y + numberVar->Height);
+		submitBtn->Tag = txt;
+		submitBtn->Click += gcnew System::EventHandler(this, &InnerWindow::SubmitValue_Click);
+
+		this->canvas->Controls->Add(numberVar);
+		this->canvas->Controls->Add(txt);
+		this->canvas->Controls->Add(submitBtn);
+		noteButtons->Add(numberVar);
+		noteValues[numberVar] = "";
+		noteTypes[numberVar] = "int";
+		noteValueTextBoxes[numberVar] = txt;
+		noteSubmitButtons[numberVar] = submitBtn;
+
+		ShowRenameTextBox(numberVar);
+	}
+
+	private: System::Void NumberTextBox_KeyPress(System::Object^ sender, System::Windows::Forms::KeyPressEventArgs^ e)
+	{
+		
+	}
+
+	private: System::Void PictureButton_Click(System::Object^ sender, System::EventArgs^ e)
+	{
+		System::Windows::Forms::Button^ picBtn = gcnew System::Windows::Forms::Button();
+		picBtn->Text = L"Upload";
+		picBtn->Size = System::Drawing::Size(200, 200);
+		picBtn->Location = System::Drawing::Point(250, 100 + noteButtons->Count * 50);
+		picBtn->BackColor = System::Drawing::Color::LightGray;
+		picBtn->ForeColor = System::Drawing::Color::DimGray;
+		picBtn->FlatStyle = System::Windows::Forms::FlatStyle::Flat;
+		picBtn->Font = gcnew System::Drawing::Font(L"Candara", 16.0F, System::Drawing::FontStyle::Bold);
+
+		// Drag on single click, upload on double click
+		picBtn->MouseDown += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseDown);
+		picBtn->MouseMove += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseMove);
+		picBtn->MouseUp += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Note_MouseUp);
+		picBtn->MouseClick += gcnew System::Windows::Forms::MouseEventHandler(this, &InnerWindow::Picture_MouseClick);
+
+		this->canvas->Controls->Add(picBtn);
+		noteButtons->Add(picBtn);
+		noteTypes[picBtn] = "picture";
+		noteValues[picBtn] = ""; // Will store image file name
+	}
+
+	private: System::Void Picture_MouseClick(System::Object^ sender, System::Windows::Forms::MouseEventArgs^ e)
+	{
+		System::Windows::Forms::Button^ picBtn = safe_cast<System::Windows::Forms::Button^>(sender);
+		System::DateTime now = System::DateTime::Now;
+		System::DateTime lastClick = pictureLastClickTimes->ContainsKey(picBtn) ? pictureLastClickTimes[picBtn] : System::DateTime::MinValue;
+
+		if ((now - lastClick).TotalMilliseconds < SystemInformation::DoubleClickTime)
+		{
+			// Double click: open file dialog to upload image
+			OpenFileDialog^ dlg = gcnew OpenFileDialog();
+			dlg->Filter = "Image Files|*.jpg;*.jpeg;*.png;*.bmp;*.gif";
+			dlg->Title = "Select a picture";
+			if (dlg->ShowDialog() == System::Windows::Forms::DialogResult::OK)
+			{
+				System::String^ picturesDir = "pictures";
+				if (!System::IO::Directory::Exists(picturesDir))
+					System::IO::Directory::CreateDirectory(picturesDir);
+
+				System::String^ fileName = System::IO::Path::GetFileName(dlg->FileName);
+				System::String^ destPath = System::IO::Path::Combine(picturesDir, fileName);
+
+				// If file already exists, add a number
+				int count = 1;
+				System::String^ baseName = System::IO::Path::GetFileNameWithoutExtension(fileName);
+				System::String^ ext = System::IO::Path::GetExtension(fileName);
+				while (System::IO::File::Exists(destPath))
+				{
+					fileName = baseName + "_" + count.ToString() + ext;
+					destPath = System::IO::Path::Combine(picturesDir, fileName);
+					count++;
+				}
+				System::IO::File::Copy(dlg->FileName, destPath);
+
+				// Set image as button background
+				picBtn->BackgroundImage = System::Drawing::Image::FromFile(destPath);
+				picBtn->BackgroundImageLayout = System::Windows::Forms::ImageLayout::Zoom;
+				picBtn->Text = "";
+				noteValues[picBtn] = fileName;
+				noteTypes[picBtn] = "picture";
+			}
+		}
+		pictureLastClickTimes[picBtn] = now;
+	}
+
+
+
+
+
 
 
 
@@ -649,9 +1248,7 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 	{
 		int scrollX = -this->canvas->AutoScrollPosition.X;
 		int scrollY = -this->canvas->AutoScrollPosition.Y;
-		System::String^ windowTitle = this->Text;
 		System::String^ className = this->currentClassName;
-
 		System::String^ mainFile = "canvas_save.txt";
 		if (!System::IO::File::Exists(mainFile))
 		{
@@ -665,7 +1262,6 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 		bool inTargetClass = false;
 		bool inBraces = false;
 		bool classFound = false;
-
 
 		//to keep the class position on the main canvas
 		int classX = scrollX;
@@ -689,8 +1285,6 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 				}
 			}
 		}
-
-
 
 		for (int i = 0; i < lines->Length; ++i)
 		{
@@ -719,11 +1313,21 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 				// Write all notes for this class
 				for each (System::Windows::Forms::Button ^ note in noteButtons)
 				{
+					System::String^ type = noteTypes->ContainsKey(note) ? noteTypes[note] : "string";
 					System::String^ noteName = note->Text;
 					int x = note->Location.X;
 					int y = note->Location.Y;
 					System::String^ value = noteValues->ContainsKey(note) ? noteValues[note] : "";
-					newLines->Add("[" + noteName + ", " + x.ToString() + ", " + y.ToString() + "] = " + value);
+
+					if (type == "picture")
+					{
+						// Save as [Picture, x, y] = picture name
+						newLines->Add("[Picture, " + x.ToString() + ", " + y.ToString() + "] = " + value);
+					}
+					else
+					{
+						newLines->Add("[" + type + " " + noteName + ", " + x.ToString() + ", " + y.ToString() + "] = " + value);
+					}
 				}
 				// Skip all lines until closing brace
 				while (i + 1 < lines->Length && !lines[i + 1]->Trim()->Equals("}"))
@@ -752,13 +1356,18 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 			if (endIdx == -1) endIdx = newLines->Count;
 			newLines->Insert(endIdx++, "[" + className + ", " + scrollX.ToString() + ", " + scrollY.ToString() + "]");
 			newLines->Insert(endIdx++, "{");
-			for each (System::Windows::Forms::Button ^ note in noteButtons)
+			for each(System::Windows::Forms::Button ^ note in noteButtons)
 			{
 				System::String^ noteName = note->Text;
 				int x = note->Location.X;
 				int y = note->Location.Y;
-				System::String^ value = noteValues->ContainsKey(note) ? noteValues[note] : "";
-				newLines->Insert(endIdx++, "[" + noteName + ", " + x.ToString() + ", " + y.ToString() + "] = " + value);
+				System::String^ type = noteTypes->ContainsKey(note) ? noteTypes[note] : "string";
+				System::String^ value;
+				if (notePointerExpressions->ContainsKey(note))
+					value = notePointerExpressions[note];
+				else
+					value = noteValues->ContainsKey(note) ? noteValues[note] : "";
+				newLines->Insert(endIdx++, "[" + type + " " + noteName + ", " + x.ToString() + ", " + y.ToString() + "] = " + value);
 			}
 			newLines->Insert(endIdx, "}");
 		}
@@ -769,6 +1378,12 @@ private: void ShowValueTextBox(System::Windows::Forms::Button^ btn)
 	}
 
 
+
+	private: System::Void SaveAndExitButton_Click(System::Object^ sender, System::EventArgs^ e)
+	{
+		SaveButton_Click(sender, e); // Save the current state
+		this->Close();               // Close only this window
+	}
 
 
 
